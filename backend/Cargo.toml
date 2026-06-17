@@ -30,6 +30,7 @@ bytes = "1.5"
 tokio-stream = { version = "0.1", features = ["sync"] }
 metrics = "0.22"
 metrics-exporter-prometheus = "0.15"
+rayon = "1.10"
 
 [dev-dependencies]
 tokio-test = "0.4"

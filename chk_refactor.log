@@ -1,0 +1,316 @@
+﻿cargo :     Updating crates.io index
+所在位置 行:1 字符: 89
++ ... 2\AI_solo_coder_task_B_142\backend ; cargo check --tests 2>&1 | Out-F ...
++                                          ~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (    Updating crates.io index:Stri 
+   ng) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+     Locking 4 packages to latest compatible versions
+      Adding crossbeam-deque v0.8.6
+      Adding either v1.16.0
+      Adding rayon v1.12.0
+      Adding rayon-core v1.13.0
+    Checking tokio v1.52.3
+   Compiling aws-lc-sys v0.41.0
+   Compiling rayon-core v1.13.0
+    Checking crossbeam-deque v0.8.6
+    Checking either v1.16.0
+    Checking nalgebra v0.32.6
+    Checking rayon v1.12.0
+    Checking tokio-util v0.7.18
+    Checking tokio-native-tls v0.3.1
+    Checking tokio-rustls v0.25.0
+    Checking tower v0.5.3
+    Checking async-compression v0.4.42
+    Checking rumqttc v0.24.0
+    Checking h2 v0.4.15
+    Checking h2 v0.3.27
+    Checking tokio-stream v0.1.18
+    Checking tower-http v0.5.2
+    Checking tokio-test v0.4.5
+    Checking hyper v1.10.1
+    Checking hyper v0.14.32
+    Checking hyper-util v0.1.20
+    Checking hyper-tls v0.5.0
+    Checking axum v0.7.9
+    Checking clickhouse v0.14.3
+    Checking reqwest v0.11.27
+   Compiling aws-lc-rs v1.17.0
+   Compiling rustls v0.23.40
+    Checking rustls-webpki v0.103.13
+    Checking tokio-rustls v0.26.4
+    Checking hyper-rustls v0.27.9
+    Checking metrics-exporter-prometheus v0.15.3
+    Checking sinan-backend v1.0.0 (D:\SOLO-2\AI_solo_coder_task_B_142\backend)
+warning: unused import: `InterferenceType`
+ --> src\micromagnetic_simulation.rs:6:57
+  |
+6 |     InterferenceSimulationResponse, InterferenceSource, InterferenceType,
+  |                                                         ^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0277]: expected a `FnMut(usize)` closure, found `std::string::String`
+   --> src\compute_pool.rs:61:26
+    |
+ 61 |             .thread_name(config.thread_name_prefix.clone());
+    |              ----------- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected an `F
+nMut(usize)` closure, found `std::string::String`
+    |              |
+    |              required by a bound introduced by this call
+    |
+    = help: the trait `FnMut(usize)` is not implemented for `std::string::Strin
+g`
+note: required by a bound in `ThreadPoolBuilder::<S>::thread_name`
+   --> C:\Users\y\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\rayon-co
+re-1.13.0\src\lib.rs:498:12
+    |
+496 |     pub fn thread_name<F>(mut self, closure: F) -> Self
+    |            ----------- required by a bound in this associated function
+497 |     where
+498 |         F: FnMut(usize) -> String + 'static,
+    |            ^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ThreadPoolBu
+ilder::<S>::thread_name`
+
+error[E0609]: no field `Nxx` on type `micromagnetic_simulation::Demagnetization
+Tensor`
+   --> src\device_comparator.rs:111:24
+    |
+111 |         assert!(tensor.Nxx.is_finite());
+    |                        ^^^ unknown field
+    |
+    = note: available fields are: `n_xx`, `n_yy`, `n_zz`, `n_xy`, `n_xz` ... an
+d 3 others
+
+error[E0560]: struct `models::InterferenceSimulationRequest` has no field named
+ `sources`
+  --> src\interference_simulator.rs:79:13
+   |
+79 |             sources: vec![],
+   |             ^^^^^^^ `models::InterferenceSimulationRequest` does not have 
+this field
+   |
+   = note: available fields are: `interference_sources`
+
+error[E0560]: struct `models::InterferenceSimulationRequest` has no field named
+ `sources`
+   --> src\interference_simulator.rs:101:13
+    |
+101 |             sources: vec![InterferenceSource {
+    |             ^^^^^^^ `models::InterferenceSimulationRequest` does not have
+ this field
+    |
+    = note: available fields are: `interference_sources`
+
+error[E0063]: missing field `description` in initializer of `InterferenceSource
+`
+   --> src\interference_simulator.rs:101:27
+    |
+101 |             sources: vec![InterferenceSource {
+    |                           ^^^^^^^^^^^^^^^^^^ missing `description`
+
+error[E0560]: struct `models::InterferenceSimulationRequest` has no field named
+ `sources`
+   --> src\interference_simulator.rs:129:13
+    |
+129 |             sources: vec![InterferenceSource {
+    |             ^^^^^^^ `models::InterferenceSimulationRequest` does not have
+ this field
+    |
+    = note: available fields are: `interference_sources`
+
+error[E0063]: missing field `description` in initializer of `InterferenceSource
+`
+   --> src\interference_simulator.rs:129:27
+    |
+129 |             sources: vec![InterferenceSource {
+    |                           ^^^^^^^^^^^^^^^^^^ missing `description`
+
+error[E0615]: attempted to take value of method `base_field_at_1m_nt` on type `
+&InterferenceType`
+   --> src\interference_simulator.rs:152:23
+    |
+152 |             assert!(t.base_field_at_1m_nt > 0.0);
+    |                       ^^^^^^^^^^^^^^^^^^^ method, not a field
+    |
+help: use parentheses to call the method
+    |
+152 |             assert!(t.base_field_at_1m_nt() > 0.0);
+    |                                          ++
+
+error[E0308]: mismatched types
+   --> src\vr_sinan.rs:105:40
+    |
+105 |             magnetic_moment_magnitude: Some(0.3),
+    |                                        ^^^^^^^^^ expected `f64`, found `O
+ption<{float}>`
+    |
+    = note: expected type `f64`
+               found enum `std::option::Option<{float}>`
+
+error[E0308]: mismatched types
+   --> src\vr_sinan.rs:106:24
+    |
+106 |             remanence: Some(90000.0),
+    |                        ^^^^^^^^^^^^^ expected `f64`, found `Option<{float
+}>`
+    |
+    = note: expected type `f64`
+               found enum `std::option::Option<{float}>`
+
+error[E0560]: struct `InteractiveSinanRequest` has no field named `temperature_
+celsius`
+   --> src\vr_sinan.rs:110:13
+    |
+110 |             temperature_celsius: 25.0,
+    |             ^^^^^^^^^^^^^^^^^^^ `InteractiveSinanRequest` does not have t
+his field
+    |
+    = note: available fields are: `temperature`, `friction_coefficient`, `demag
+netization_factor_override`
+
+error[E0560]: struct `InteractiveSinanRequest` has no field named `pivot_fricti
+on_coefficient`
+   --> src\vr_sinan.rs:111:13
+    |
+111 |             pivot_friction_coefficient: None,
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^ unknown field
+    |
+help: a field with a similar name exists
+    |
+111 -             pivot_friction_coefficient: None,
+111 +             friction_coefficient: None,
+    |
+
+error[E0308]: mismatched types
+   --> src\vr_sinan.rs:112:34
+    |
+112 |             anisotropy_constant: None,
+    |                                  ^^^^ expected `f64`, found `Option<_>`
+    |
+    = note: expected type `f64`
+               found enum `std::option::Option<_>`
+
+error[E0308]: mismatched types
+   --> src\vr_sinan.rs:136:40
+    |
+136 |             magnetic_moment_magnitude: None,
+    |                                        ^^^^ expected `f64`, found `Option
+<_>`
+    |
+    = note: expected type `f64`
+               found enum `std::option::Option<_>`
+
+error[E0308]: mismatched types
+   --> src\vr_sinan.rs:137:24
+    |
+137 |             remanence: None,
+    |                        ^^^^ expected `f64`, found `Option<_>`
+    |
+    = note: expected type `f64`
+               found enum `std::option::Option<_>`
+
+error[E0560]: struct `InteractiveSinanRequest` has no field named `temperature_
+celsius`
+   --> src\vr_sinan.rs:141:13
+    |
+141 |             temperature_celsius: 25.0,
+    |             ^^^^^^^^^^^^^^^^^^^ `InteractiveSinanRequest` does not have t
+his field
+    |
+    = note: available fields are: `temperature`, `friction_coefficient`, `demag
+netization_factor_override`
+
+error[E0560]: struct `InteractiveSinanRequest` has no field named `pivot_fricti
+on_coefficient`
+   --> src\vr_sinan.rs:142:13
+    |
+142 |             pivot_friction_coefficient: None,
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^ unknown field
+    |
+help: a field with a similar name exists
+    |
+142 -             pivot_friction_coefficient: None,
+142 +             friction_coefficient: None,
+    |
+
+error[E0308]: mismatched types
+   --> src\vr_sinan.rs:143:34
+    |
+143 |             anisotropy_constant: None,
+    |                                  ^^^^ expected `f64`, found `Option<_>`
+    |
+    = note: expected type `f64`
+               found enum `std::option::Option<_>`
+
+warning: unused variable: `c_factor`
+   --> src\micromagnetic_simulation.rs:114:17
+    |
+114 |             let c_factor = (alpha_sq / (1.0 - alpha_sq)).sqrt();
+    |                 ^^^^^^^^ help: if this is intentional, prefix it with an 
+underscore: `_c_factor`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by defau
+lt
+
+warning: value assigned to `c` is never read
+   --> src\micromagnetic_simulation.rs:136:21
+    |
+136 |         let mut c = k;
+    |                     ^ this value is reassigned later and never used
+...
+150 |             c = c_new;
+    |             --------- `c` is overwritten here before the previous value i
+s read
+    |
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by def
+ault
+
+warning: unused variable: `wall_thickness`
+   --> src\micromagnetic_simulation.rs:181:13
+    |
+181 |         let wall_thickness = 1e-8;
+    |             ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with a
+n underscore: `_wall_thickness`
+
+warning: unused variable: `reduced_field`
+   --> src\micromagnetic_simulation.rs:757:13
+    |
+757 |         let reduced_field = applied_field / anisotropy_field;
+    |             ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an
+ underscore: `_reduced_field`
+
+warning: unused variable: `params`
+    --> src\micromagnetic_simulation.rs:1195:13
+     |
+1195 |         let params = PointingSimulationParams {
+     |             ^^^^^^ help: if this is intentional, prefix it with an under
+score: `_params`
+
+warning: unused variable: `surface_area`
+    --> src\micromagnetic_simulation.rs:1455:13
+     |
+1455 |         let surface_area = 2.0 * (l * w + l * t + w * t);
+     |             ^^^^^^^^^^^^ help: if this is intentional, prefix it with an
+ underscore: `_surface_area`
+
+warning: unused variable: `k_magnetic`
+    --> src\micromagnetic_simulation.rs:1483:13
+     |
+1483 |         let k_magnetic = if matches!(req.device_type, DeviceType::MemsCo
+mpass) {
+     |             ^^^^^^^^^^ help: if this is intentional, prefix it with an u
+nderscore: `_k_magnetic`
+
+For more information about this error, try `rustc --explain E0277`.
+warning: `sinan-backend` (lib) generated 8 warnings
+error: could not compile `sinan-backend` (lib) due to 1 previous error; 8 warni
+ngs emitted
+warning: build failed, waiting for other jobs to finish...
+Some errors have detailed explanations: E0063, E0277, E0308, E0560, E0609, E061
+5.
+For more information about an error, try `rustc --explain E0063`.
+warning: `sinan-backend` (lib test) generated 8 warnings (8 duplicates)
+error: could not compile `sinan-backend` (lib test) due to 18 previous errors; 
+8 warnings emitted

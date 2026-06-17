@@ -1,0 +1,105 @@
+﻿cargo :    Compiling crossbeam-deque v0.8.6
+所在位置 行:1 字符: 89
++ ... oder_task_B_142\backend ; cargo test --bin sinan-backend 2>&1 | Out-F ...
++                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (   Compiling crossbeam-deque v0.8 
+   .6:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   Compiling either v1.16.0
+   Compiling rayon-core v1.13.0
+   Compiling rayon v1.12.0
+   Compiling sinan-backend v1.0.0 (D:\SOLO-2\AI_solo_coder_task_B_142\backend)
+warning: unused import: `InterferenceType`
+ --> src\micromagnetic_simulation.rs:6:57
+  |
+6 |     InterferenceSimulationResponse, InterferenceSource, InterferenceType,
+  |                                                         ^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0277]: expected a `FnMut(usize)` closure, found `std::string::String`
+   --> src\compute_pool.rs:61:26
+    |
+ 61 |             .thread_name(config.thread_name_prefix.clone());
+    |              ----------- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected an `F
+nMut(usize)` closure, found `std::string::String`
+    |              |
+    |              required by a bound introduced by this call
+    |
+    = help: the trait `FnMut(usize)` is not implemented for `std::string::Strin
+g`
+note: required by a bound in `ThreadPoolBuilder::<S>::thread_name`
+   --> C:\Users\y\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\rayon-co
+re-1.13.0\src\lib.rs:498:12
+    |
+496 |     pub fn thread_name<F>(mut self, closure: F) -> Self
+    |            ----------- required by a bound in this associated function
+497 |     where
+498 |         F: FnMut(usize) -> String + 'static,
+    |            ^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ThreadPoolBu
+ilder::<S>::thread_name`
+
+warning: unused variable: `c_factor`
+   --> src\micromagnetic_simulation.rs:114:17
+    |
+114 |             let c_factor = (alpha_sq / (1.0 - alpha_sq)).sqrt();
+    |                 ^^^^^^^^ help: if this is intentional, prefix it with an 
+underscore: `_c_factor`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by defau
+lt
+
+warning: value assigned to `c` is never read
+   --> src\micromagnetic_simulation.rs:136:21
+    |
+136 |         let mut c = k;
+    |                     ^ this value is reassigned later and never used
+...
+150 |             c = c_new;
+    |             --------- `c` is overwritten here before the previous value i
+s read
+    |
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by def
+ault
+
+warning: unused variable: `wall_thickness`
+   --> src\micromagnetic_simulation.rs:181:13
+    |
+181 |         let wall_thickness = 1e-8;
+    |             ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with a
+n underscore: `_wall_thickness`
+
+warning: unused variable: `reduced_field`
+   --> src\micromagnetic_simulation.rs:757:13
+    |
+757 |         let reduced_field = applied_field / anisotropy_field;
+    |             ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an
+ underscore: `_reduced_field`
+
+warning: unused variable: `params`
+    --> src\micromagnetic_simulation.rs:1195:13
+     |
+1195 |         let params = PointingSimulationParams {
+     |             ^^^^^^ help: if this is intentional, prefix it with an under
+score: `_params`
+
+warning: unused variable: `surface_area`
+    --> src\micromagnetic_simulation.rs:1455:13
+     |
+1455 |         let surface_area = 2.0 * (l * w + l * t + w * t);
+     |             ^^^^^^^^^^^^ help: if this is intentional, prefix it with an
+ underscore: `_surface_area`
+
+warning: unused variable: `k_magnetic`
+    --> src\micromagnetic_simulation.rs:1483:13
+     |
+1483 |         let k_magnetic = if matches!(req.device_type, DeviceType::MemsCo
+mpass) {
+     |             ^^^^^^^^^^ help: if this is intentional, prefix it with an u
+nderscore: `_k_magnetic`
+
+For more information about this error, try `rustc --explain E0277`.
+warning: `sinan-backend` (lib) generated 8 warnings
+error: could not compile `sinan-backend` (lib) due to 1 previous error; 8 warni
+ngs emitted

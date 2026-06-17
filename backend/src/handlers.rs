@@ -4,11 +4,15 @@ use crate::database::Database;
 use crate::errors::{AppError, Result};
 use crate::metrics::HttpRequestTimer;
 use crate::micromagnetic_simulation::MicromagneticSimulator;
+use crate::device_comparator::DeviceComparator;
+use crate::era_comparator::EraComparator;
+use crate::interference_simulator::InterferenceSimulator;
 use crate::models::{
     AlertAcknowledgeRequest, CrossEraCompareRequest, DragForceRequest, InteractiveSinanRequest,
     InterferenceSimulationRequest, MultiDeviceCompareRequest, PointingSimulationParams,
     SinanSensorData, VectorFieldRequest,
 };
+use crate::vr_sinan::VRSinan;
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -30,6 +34,10 @@ pub struct AppState {
     pub metrics_handle: PrometheusHandle,
     pub simulator: Arc<MicromagneticSimulator>,
     pub geomagnetic_model: Arc<RwLock<CALS10KModel>>,
+    pub device_comparator: DeviceComparator,
+    pub era_comparator: EraComparator,
+    pub interference_simulator: InterferenceSimulator,
+    pub vr_sinan: VRSinan,
 }
 
 pub async fn health_check() -> Json<serde_json::Value> {
@@ -428,9 +436,11 @@ pub async fn compare_devices(
     };
 
     let response = state
-        .simulator
-        .compare_multiple_devices(&request, geo_field)
-        .map_err(|e| AppError::InternalError(format!("多装置对比仿真失败: {}", e)))?;
+        .device_comparator
+        .compare_async(request, geo_field)
+        .await
+        .map_err(|e| AppError::InternalError(format!("多装置对比仿真失败: {}", e)))?
+        .map_err(|e| AppError::InternalError(format!("多装置对比仿真内部错误: {}", e)))?;
 
     timer.finish("200");
 
@@ -462,9 +472,11 @@ pub async fn compare_cross_era(
     };
 
     let response = state
-        .simulator
-        .compare_cross_era(&request, ancient_field, modern_field)
-        .map_err(|e| AppError::InternalError(format!("跨时代精度对比仿真失败: {}", e)))?;
+        .era_comparator
+        .compare_async(request, ancient_field, modern_field)
+        .await
+        .map_err(|e| AppError::InternalError(format!("跨时代精度对比仿真失败: {}", e)))?
+        .map_err(|e| AppError::InternalError(format!("跨时代精度对比内部错误: {}", e)))?;
 
     timer.finish("200");
 
@@ -489,9 +501,11 @@ pub async fn simulate_interference(
     };
 
     let response = state
-        .simulator
-        .simulate_interference(&request, geo_field)
-        .map_err(|e| AppError::InternalError(format!("环境磁场干扰仿真失败: {}", e)))?;
+        .interference_simulator
+        .simulate_async(request, geo_field)
+        .await
+        .map_err(|e| AppError::InternalError(format!("环境磁场干扰仿真失败: {}", e)))?
+        .map_err(|e| AppError::InternalError(format!("环境磁场干扰仿真内部错误: {}", e)))?;
 
     timer.finish("200");
 
@@ -516,9 +530,11 @@ pub async fn simulate_interactive(
     };
 
     let response = state
-        .simulator
-        .simulate_interactive(&request, geo_field)
-        .map_err(|e| AppError::InternalError(format!("交互式司南仿真失败: {}", e)))?;
+        .vr_sinan
+        .simulate_interactive_async(request, geo_field)
+        .await
+        .map_err(|e| AppError::InternalError(format!("交互式司南仿真失败: {}", e)))?
+        .map_err(|e| AppError::InternalError(format!("交互式司南仿真内部错误: {}", e)))?;
 
     timer.finish("200");
 
@@ -543,9 +559,11 @@ pub async fn simulate_drag_force(
     };
 
     let response = state
-        .simulator
-        .simulate_drag_force(&request, geo_field)
-        .map_err(|e| AppError::InternalError(format!("拖拽力反馈仿真失败: {}", e)))?;
+        .vr_sinan
+        .simulate_drag_force_async(request, geo_field)
+        .await
+        .map_err(|e| AppError::InternalError(format!("拖拽力反馈仿真失败: {}", e)))?
+        .map_err(|e| AppError::InternalError(format!("拖拽力反馈仿真内部错误: {}", e)))?;
 
     timer.finish("200");
 

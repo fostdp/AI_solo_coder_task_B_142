@@ -2,31 +2,40 @@ mod alarm_mqtt;
 mod alert_service;
 mod cals10k_model;
 mod channels;
+mod compute_pool;
 mod config;
 mod database;
+mod device_comparator;
 mod dtu_receiver;
+mod era_comparator;
 mod errors;
 mod geomagnetic_reconstructor;
 mod handlers;
+mod interference_simulator;
 pub mod micromagnetic_simulation;
 mod magnetic_simulator;
 mod metrics;
 mod models;
 mod mqtt_service;
+mod vr_sinan;
 
 use crate::alarm_mqtt::AlarmMqttActor;
 use crate::cals10k_model::CALS10KModel;
 use crate::channels::ChannelHub;
 use crate::config::Config;
 use crate::database::Database;
+use crate::device_comparator::DeviceComparator;
 use crate::dtu_receiver::DtuReceiver;
+use crate::era_comparator::EraComparator;
 use crate::geomagnetic_reconstructor::GeomagneticReconstructor;
 use crate::handlers::AppState;
+use crate::interference_simulator::InterferenceSimulator;
 use crate::magnetic_simulator::MagneticSimulatorActor;
 use crate::metrics::init_metrics;
 use crate::micromagnetic_simulation::MicromagneticSimulator;
 use crate::models::ArchaeologyMagneticData;
 use crate::mqtt_service::MqttService;
+use crate::vr_sinan::VRSinan;
 use axum::{
     routing::{get, post},
     Router,
@@ -115,6 +124,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         metrics_handle: metrics_handle.clone(),
         simulator: simulator.clone(),
         geomagnetic_model: geomagnetic_model.clone(),
+        device_comparator: DeviceComparator::new(simulator.clone()),
+        era_comparator: EraComparator::new(simulator.clone()),
+        interference_simulator: InterferenceSimulator::new(simulator.clone()),
+        vr_sinan: VRSinan::new(simulator.clone()),
     };
 
     let cors = CorsLayer::new()
