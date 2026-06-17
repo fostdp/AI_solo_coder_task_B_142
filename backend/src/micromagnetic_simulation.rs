@@ -1390,3 +1390,713 @@ impl MicromagneticSimulator {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{
+        CrossEraCompareRequest, DeviceType, InteractiveSinanRequest,
+        InterferenceSimulationRequest, InterferenceSource, InterferenceType,
+        MultiDeviceCompareRequest,
+    };
+    use nalgebra::Vector3;
+    use std::f64::consts::PI;
+
+    fn make_geomagnetic_field(nT: f64, decl_deg: f64, incl_deg: f64) -> Vector3<f64> {
+        let dec = decl_deg * PI / 180.0;
+        let inc = incl_deg * PI / 180.0;
+        let b = nT * 1e-9;
+        Vector3::new(
+            b * inc.cos() * dec.cos(),
+            b * inc.cos() * dec.sin(),
+            b * inc.sin(),
+        )
+    }
+
+    fn modern_field() -> Vector3<f64> {
+        make_geomagnetic_field(52000.0, -5.0, 55.0)
+    }
+
+    fn ancient_field() -> Vector3<f64> {
+        make_geomagnetic_field(56000.0, -2.0, 58.0)
+    }
+
+    fn simulator() -> MicromagneticSimulator {
+        MicromagneticSimulator::default()
+    }
+
+    // ========== 1. 装置对比测试 ==========
+
+    #[test]
+    fn test_compare_devices_normal_sinan_vs_hanluopan() {
+        let sim = simulator();
+        let req = MultiDeviceCompareRequest {
+            target_year: 2024.0,
+            location_lat: 39.9,
+            location_lon: 116.4,
+            devices: vec![DeviceType::Sinan, DeviceType::HanLuopan],
+            magnetic_moment_magnitude: None,
+            remanence: None,
+            temperature: 25.0,
+            expected_azimuth: 180.0,
+            monte_carlo_samples: None,
+        };
+        let res = sim.compare_multiple_devices(&req, modern_field()).unwrap();
+
+        assert_eq!(res.devices.len(), 2);
+        assert!(!res.summary.is_empty());
+        assert!(res.ranking.len() >= 2);
+
+        for d in &res.devices {
+            assert!(d.mean_deviation_deg >= 0.0);
+            assert!(d.std_deviation_deg >= 0.0);
+            assert!(d.p95_deviation_deg >= d.mean_deviation_deg - 1e-6);
+            assert!(d.max_deviation_deg >= d.min_deviation_deg);
+        }
+
+        let sinan = res.devices.iter().find(|d| matches!(d.device_type, DeviceType::Sinan)).unwrap();
+        let luopan = res.devices.iter().find(|d| matches!(d.device_type, DeviceType::HanLuopan)).unwrap();
+        assert!(
+            luopan.mean_deviation_deg < sinan.mean_deviation_deg,
+            "旱罗盘精度应优于司南"
+        );
+    }
+
+    #[test]
+    fn test_compare_devices_boundary_empty_devices_defaults_to_all() {
+        let sim = simulator();
+        let req = MultiDeviceCompareRequest {
+            target_year: 2024.0,
+            location_lat: 30.0,
+            location_lon: 120.0,
+            devices: vec![],
+            magnetic_moment_magnitude: None,
+            remanence: None,
+            temperature: 20.0,
+            expected_azimuth: 0.0,
+            monte_carlo_samples: None,
+        };
+        let res = sim.compare_multiple_devices(&req, modern_field()).unwrap();
+        assert_eq!(res.devices.len(), 4, "空列表默认为全部4种装置");
+        assert_eq!(res.ranking.len(), 4);
+    }
+
+    #[test]
+    fn test_compare_devices_boundary_extreme_years() {
+        let sim = simulator();
+        for y in [-1000.0f64, 1088.0, 1405.0, 1900.0, 2100.0] {
+            let req = MultiDeviceCompareRequest {
+                target_year: y,
+                location_lat: 35.0,
+                location_lon: 110.0,
+                devices: vec![DeviceType::Sinan, DeviceType::Zhinanyu],
+                magnetic_moment_magnitude: None,
+                remanence: None,
+                temperature: 15.0,
+                expected_azimuth: 90.0,
+                monte_carlo_samples: None,
+            };
+            let res = sim.compare_multiple_devices(&req, ancient_field()).unwrap();
+            assert_eq!(res.devices.len(), 2);
+            assert!(res.geomagnetic_intensity_nT > 1000.0);
+        }
+    }
+
+    #[test]
+    fn test_compare_devices_extreme_temperature() {
+        let sim = simulator();
+        for temp in [-40.0, 0.0, 60.0, 85.0] {
+            let req = MultiDeviceCompareRequest {
+                target_year: 2024.0,
+                location_lat: 39.9,
+                location_lon: 116.4,
+                devices: vec![DeviceType::MemsCompass, DeviceType::HanLuopan],
+                magnetic_moment_magnitude: None,
+                remanence: None,
+                temperature: temp,
+                expected_azimuth: 270.0,
+                monte_carlo_samples: None,
+            };
+            let res = sim.compare_multiple_devices(&req, modern_field()).unwrap();
+            assert_eq!(res.devices.len(), 2);
+        }
+    }
+
+    #[test]
+    fn test_compare_devices_ranking_structure() {
+        let sim = simulator();
+        let req = MultiDeviceCompareRequest {
+            target_year: 2024.0,
+            location_lat: 40.0,
+            location_lon: 116.0,
+            devices: vec![
+                DeviceType::Sinan,
+                DeviceType::Zhinanyu,
+                DeviceType::HanLuopan,
+                DeviceType::MemsCompass,
+            ],
+            magnetic_moment_magnitude: None,
+            remanence: None,
+            temperature: 25.0,
+            expected_azimuth: 45.0,
+            monte_carlo_samples: None,
+        };
+        let res = sim.compare_multiple_devices(&req, modern_field()).unwrap();
+        assert_eq!(res.ranking.len(), 4, "排名应包含全部4种装置");
+        let types_in_ranking: std::collections::HashSet<DeviceType> = res.ranking.into_iter().collect();
+        assert_eq!(types_in_ranking.len(), 4, "排名中每种装置恰好出现一次");
+        assert!(types_in_ranking.contains(&DeviceType::Sinan));
+        assert!(types_in_ranking.contains(&DeviceType::Zhinanyu));
+        assert!(types_in_ranking.contains(&DeviceType::HanLuopan));
+        assert!(types_in_ranking.contains(&DeviceType::MemsCompass));
+    }
+
+    // ========== 2. 跨时代对比测试 ==========
+
+    #[test]
+    fn test_cross_era_sinan_vs_mems_normal() {
+        let sim = simulator();
+        let req = CrossEraCompareRequest {
+            location_lat: 34.26,
+            location_lon: 108.95,
+            ancient_year: 139.0,
+            modern_year: 2024.0,
+            ancient_device: DeviceType::Sinan,
+            temperature: 20.0,
+            expected_azimuth: 180.0,
+        };
+        let res = sim.compare_cross_era(&req, ancient_field(), modern_field()).unwrap();
+
+        assert!(matches!(res.ancient.device_type, DeviceType::Sinan));
+        assert!(matches!(res.modern_mems.device_type, DeviceType::MemsCompass));
+        assert!(res.improvement_factor > 1.0);
+        assert!(res.accuracy_gap_deg > 0.0);
+        assert!(!res.narrative.is_empty());
+        assert!(!res.historical_context.is_empty());
+    }
+
+    #[test]
+    fn test_cross_era_zhinanyu_vs_mems() {
+        let sim = simulator();
+        let req = CrossEraCompareRequest {
+            location_lat: 34.0,
+            location_lon: 114.0,
+            ancient_year: 1044.0,
+            modern_year: 2024.0,
+            ancient_device: DeviceType::Zhinanyu,
+            temperature: 25.0,
+            expected_azimuth: 0.0,
+        };
+        let res = sim.compare_cross_era(&req, ancient_field(), modern_field()).unwrap();
+        assert!(matches!(res.ancient.device_type, DeviceType::Zhinanyu));
+        assert!(res.improvement_factor.is_finite(), "改善因子应为有限数");
+        assert!(!res.narrative.is_empty());
+        assert!(res.historical_context.contains("武经总要"));
+    }
+
+    #[test]
+    fn test_cross_era_hanluopan_vs_mems() {
+        let sim = simulator();
+        let req = CrossEraCompareRequest {
+            location_lat: 32.0,
+            location_lon: 118.0,
+            ancient_year: 1405.0,
+            modern_year: 2024.0,
+            ancient_device: DeviceType::HanLuopan,
+            temperature: 22.0,
+            expected_azimuth: 90.0,
+        };
+        let res = sim.compare_cross_era(&req, ancient_field(), modern_field()).unwrap();
+        assert!(matches!(res.ancient.device_type, DeviceType::HanLuopan));
+        assert!(res.improvement_factor > 0.0, "改善因子应为正");
+    }
+
+    #[test]
+    fn test_cross_era_boundary_same_field_both_eras() {
+        let sim = simulator();
+        let field = modern_field();
+        let req = CrossEraCompareRequest {
+            location_lat: 30.0,
+            location_lon: 120.0,
+            ancient_year: 2024.0,
+            modern_year: 2024.0,
+            ancient_device: DeviceType::HanLuopan,
+            temperature: 25.0,
+            expected_azimuth: 135.0,
+        };
+        let res = sim.compare_cross_era(&req, field, field).unwrap();
+        assert!(res.improvement_factor > 1.0, "同地磁场MEMS仍应更优");
+    }
+
+    #[test]
+    fn test_cross_era_boundary_extreme_location() {
+        let sim = simulator();
+        let cases: Vec<(&'static str, f64, f64)> = vec![
+            ("北极附近", 85.0, 30.0),
+            ("赤道附近", 0.0, 120.0),
+            ("南极附近", -80.0, -60.0),
+            ("中国漠河", 53.48, 122.37),
+            ("三亚", 18.25, 109.51),
+        ];
+        for (name, lat, lon) in cases {
+            let req = CrossEraCompareRequest {
+                location_lat: lat,
+                location_lon: lon,
+                ancient_year: 1000.0,
+                modern_year: 2024.0,
+                ancient_device: DeviceType::Sinan,
+                temperature: 10.0,
+                expected_azimuth: 225.0,
+            };
+            let f = make_geomagnetic_field(
+                if lat.abs() > 60.0 { 60000.0 } else { 45000.0 },
+                0.0,
+                if lat > 0.0 { 65.0 } else { -65.0 },
+            );
+            let res = sim.compare_cross_era(&req, f, modern_field())
+                .unwrap_or_else(|e| panic!("地点{}失败: {:?}", name, e));
+            assert!(res.improvement_factor > 0.0, "{}: 改善因子应为正", name);
+        }
+    }
+
+    // ========== 3. 干扰模拟测试 ==========
+
+    #[test]
+    fn test_interference_boundary_empty_sources_safe() {
+        let sim = simulator();
+        let req = InterferenceSimulationRequest {
+            device_type: DeviceType::Sinan,
+            target_year: 2024.0,
+            location_lat: 39.9,
+            location_lon: 116.4,
+            temperature: 25.0,
+            expected_azimuth: 180.0,
+            magnetic_moment_magnitude: None,
+            remanence: None,
+            interference_sources: vec![],
+        };
+        let res = sim.simulate_interference(&req, modern_field()).unwrap();
+        assert_eq!(res.warning_level, "安全");
+        assert!(res.interference_ratio < 0.05);
+        assert!(res.total_interference_field_nT < 10.0);
+        assert!(res.effects.is_empty());
+    }
+
+    #[test]
+    fn test_interference_normal_single_ferrous_object() {
+        let sim = simulator();
+        let req = InterferenceSimulationRequest {
+            device_type: DeviceType::Sinan,
+            target_year: 2024.0,
+            location_lat: 39.9,
+            location_lon: 116.4,
+            temperature: 25.0,
+            expected_azimuth: 180.0,
+            magnetic_moment_magnitude: None,
+            remanence: None,
+            interference_sources: vec![InterferenceSource {
+                interference_type: InterferenceType::FerrousObject,
+                distance_m: 0.3,
+                intensity_factor: 1.0,
+                azimuth_deg: 90.0,
+                description: Some("铁制剪刀".to_string()),
+            }],
+        };
+        let res = sim.simulate_interference(&req, modern_field()).unwrap();
+        assert_eq!(res.effects.len(), 1);
+        let eff = &res.effects[0];
+        assert!(matches!(eff.interference_type, InterferenceType::FerrousObject));
+        assert!(eff.induced_field_nT > 0.0);
+        assert!(res.interference_ratio > 0.0);
+    }
+
+    #[test]
+    fn test_interference_boundary_close_loudspeaker_severe() {
+        let sim = simulator();
+        let req = InterferenceSimulationRequest {
+            device_type: DeviceType::HanLuopan,
+            target_year: 2024.0,
+            location_lat: 40.0,
+            location_lon: 116.0,
+            temperature: 25.0,
+            expected_azimuth: 0.0,
+            magnetic_moment_magnitude: None,
+            remanence: None,
+            interference_sources: vec![InterferenceSource {
+                interference_type: InterferenceType::Loudspeaker,
+                distance_m: 0.05,
+                intensity_factor: 1.5,
+                azimuth_deg: 180.0,
+                description: Some("紧贴喇叭磁铁".to_string()),
+            }],
+        };
+        let res = sim.simulate_interference(&req, modern_field()).unwrap();
+        assert!(
+            res.interference_ratio > 0.5,
+            "近距离强干扰ratio>0.5, 实际{}",
+            res.interference_ratio
+        );
+        assert_eq!(res.warning_level, "严重干扰");
+    }
+
+    #[test]
+    fn test_interference_boundary_very_far_safe() {
+        let sim = simulator();
+        let req = InterferenceSimulationRequest {
+            device_type: DeviceType::Sinan,
+            target_year: 2024.0,
+            location_lat: 40.0,
+            location_lon: 116.0,
+            temperature: 25.0,
+            expected_azimuth: 45.0,
+            magnetic_moment_magnitude: None,
+            remanence: None,
+            interference_sources: vec![
+                InterferenceSource {
+                    interference_type: InterferenceType::PowerLine,
+                    distance_m: 100.0,
+                    intensity_factor: 1.0,
+                    azimuth_deg: 0.0,
+                    description: None,
+                },
+                InterferenceSource {
+                    interference_type: InterferenceType::BuildingRebar,
+                    distance_m: 20.0,
+                    intensity_factor: 0.5,
+                    azimuth_deg: 90.0,
+                    description: None,
+                },
+            ],
+        };
+        let res = sim.simulate_interference(&req, modern_field()).unwrap();
+        assert!(res.interference_ratio < 0.2, "远距离干扰<20%, 实际{}", res.interference_ratio);
+        assert_ne!(res.warning_level, "严重干扰");
+    }
+
+    #[test]
+    fn test_interference_multiple_sources_stack() {
+        let sim = simulator();
+        let build_req = |sources: Vec<InterferenceSource>| InterferenceSimulationRequest {
+            device_type: DeviceType::Sinan,
+            target_year: 2024.0,
+            location_lat: 40.0,
+            location_lon: 116.0,
+            temperature: 25.0,
+            expected_azimuth: 90.0,
+            magnetic_moment_magnitude: None,
+            remanence: None,
+            interference_sources: sources,
+        };
+
+        let single = InterferenceSource {
+            interference_type: InterferenceType::ElectronicDevice,
+            distance_m: 0.2,
+            intensity_factor: 1.0,
+            azimuth_deg: 90.0,
+            description: None,
+        };
+        let res_single = sim.simulate_interference(&build_req(vec![single.clone()]), modern_field()).unwrap();
+
+        let multi = sim.simulate_interference(
+            &build_req(vec![
+                single,
+                InterferenceSource {
+                    interference_type: InterferenceType::Loudspeaker,
+                    distance_m: 0.5,
+                    intensity_factor: 1.0,
+                    azimuth_deg: 180.0,
+                    description: None,
+                },
+                InterferenceSource {
+                    interference_type: InterferenceType::FerrousObject,
+                    distance_m: 0.4,
+                    intensity_factor: 1.0,
+                    azimuth_deg: 0.0,
+                    description: None,
+                },
+            ]),
+            modern_field(),
+        ).unwrap();
+
+        assert!(multi.total_interference_field_nT >= res_single.total_interference_field_nT);
+        assert_eq!(multi.effects.len(), 3);
+    }
+
+    #[test]
+    fn test_interference_all_six_types() {
+        let sim = simulator();
+        let types = vec![
+            InterferenceType::FerrousObject,
+            InterferenceType::PowerLine,
+            InterferenceType::ElectronicDevice,
+            InterferenceType::BuildingRebar,
+            InterferenceType::Loudspeaker,
+            InterferenceType::LightningStorm,
+        ];
+        for t in types {
+            let req = InterferenceSimulationRequest {
+                device_type: DeviceType::HanLuopan,
+                target_year: 2024.0,
+                location_lat: 30.0,
+                location_lon: 120.0,
+                temperature: 22.0,
+                expected_azimuth: 270.0,
+                magnetic_moment_magnitude: None,
+                remanence: None,
+                interference_sources: vec![InterferenceSource {
+                    interference_type: t.clone(),
+                    distance_m: 1.0,
+                    intensity_factor: 1.0,
+                    azimuth_deg: 0.0,
+                    description: None,
+                }],
+            };
+            let res = sim.simulate_interference(&req, modern_field()).unwrap();
+            assert_eq!(res.effects.len(), 1);
+        }
+    }
+
+    // ========== 4. 虚拟体验交互测试 ==========
+
+    #[test]
+    fn test_interactive_normal_sinan_defaults() {
+        let sim = simulator();
+        let req = InteractiveSinanRequest {
+            device_type: DeviceType::Sinan,
+            target_year: 2024.0,
+            location_lat: 39.9,
+            location_lon: 116.4,
+            magnetic_moment_magnitude: 0.5,
+            remanence: 80000.0,
+            temperature: 25.0,
+            friction_coefficient: 0.05,
+            anisotropy_constant: 10000.0,
+            demagnetization_factor_override: None,
+            spoon_length_m: None,
+            spoon_width_m: None,
+            spoon_thickness_m: None,
+            expected_azimuth: 180.0,
+        };
+        let res = sim.simulate_interactive(&req, modern_field()).unwrap();
+
+        assert!(matches!(res.device_type, DeviceType::Sinan));
+        assert!(res.geomagnetic_intensity_nT > 10000.0);
+        assert!(res.effective_moment_magnitude > 0.0);
+        assert!(res.torque_magnitude >= 0.0);
+        assert!(res.pointing_accuracy_deg >= 0.0);
+        assert!(!res.physics_insights.is_empty(), "应含物理洞察教育信息");
+        assert!(res.demagnetization_tensor.contains_key("n_xx"));
+        assert_eq!(res.spoon_dimensions_m.len(), 3);
+    }
+
+    #[test]
+    fn test_interactive_device_switching_all_four() {
+        let sim = simulator();
+        for dt in vec![
+            DeviceType::Sinan,
+            DeviceType::Zhinanyu,
+            DeviceType::HanLuopan,
+            DeviceType::MemsCompass,
+        ] {
+            let req = InteractiveSinanRequest {
+                device_type: dt.clone(),
+                target_year: 2024.0,
+                location_lat: 35.0,
+                location_lon: 115.0,
+                magnetic_moment_magnitude: 0.5,
+                remanence: 60000.0,
+                temperature: 20.0,
+                friction_coefficient: 0.03,
+                anisotropy_constant: 12000.0,
+                demagnetization_factor_override: None,
+                spoon_length_m: None,
+                spoon_width_m: None,
+                spoon_thickness_m: None,
+                expected_azimuth: 90.0,
+            };
+            let res = sim.simulate_interactive(&req, modern_field())
+                .unwrap_or_else(|e| panic!("装置{:?}失败: {:?}", dt, e));
+            assert!(!res.physics_insights.is_empty(), "{:?}应含洞察", dt);
+
+            if matches!(dt, DeviceType::MemsCompass) {
+                assert_eq!(res.torque_magnitude, 0.0, "MEMS无永磁体力矩");
+            } else {
+                assert!(res.effective_moment_magnitude > 0.0, "{:?}应有有效磁矩", dt);
+            }
+        }
+    }
+
+    #[test]
+    fn test_interactive_boundary_custom_dimensions() {
+        let sim = simulator();
+        let req = InteractiveSinanRequest {
+            device_type: DeviceType::Sinan,
+            target_year: 2024.0,
+            location_lat: 35.0,
+            location_lon: 115.0,
+            magnetic_moment_magnitude: 0.5,
+            remanence: 60000.0,
+            temperature: 20.0,
+            friction_coefficient: 0.05,
+            anisotropy_constant: 10000.0,
+            demagnetization_factor_override: None,
+            spoon_length_m: Some(0.20),
+            spoon_width_m: Some(0.12),
+            spoon_thickness_m: Some(0.02),
+            expected_azimuth: 0.0,
+        };
+        let res = sim.simulate_interactive(&req, modern_field()).unwrap();
+        assert!((res.spoon_dimensions_m[0] - 0.20).abs() < 1e-9);
+        assert!((res.spoon_dimensions_m[1] - 0.12).abs() < 1e-9);
+        assert!((res.spoon_dimensions_m[2] - 0.02).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_interactive_boundary_extreme_magnetic_params() {
+        let sim = simulator();
+        for (mm, rm, name) in vec![
+            (0.001, 1000.0, "极弱"),
+            (2.0, 200000.0, "极强"),
+            (0.5, 60000.0, "正常"),
+        ] {
+            let req = InteractiveSinanRequest {
+                device_type: DeviceType::Sinan,
+                target_year: 2024.0,
+                location_lat: 35.0,
+                location_lon: 115.0,
+                magnetic_moment_magnitude: mm,
+                remanence: rm,
+                temperature: 25.0,
+                friction_coefficient: 0.05,
+                anisotropy_constant: 10000.0,
+                demagnetization_factor_override: Some(0.1),
+                spoon_length_m: None,
+                spoon_width_m: None,
+                spoon_thickness_m: None,
+                expected_azimuth: 135.0,
+            };
+            let res = sim.simulate_interactive(&req, modern_field())
+                .unwrap_or_else(|e| panic!("{}失败: {:?}", name, e));
+            assert!(res.effective_moment_magnitude >= 0.0, "{}: 有效磁矩非负", name);
+        }
+    }
+
+    #[test]
+    fn test_interactive_boundary_extreme_friction() {
+        let sim = simulator();
+        let mut last = None;
+        for friction in [0.001, 0.05, 0.2, 0.5, 1.0] {
+            let req = InteractiveSinanRequest {
+                device_type: DeviceType::Sinan,
+                target_year: 2024.0,
+                location_lat: 35.0,
+                location_lon: 115.0,
+                magnetic_moment_magnitude: 0.5,
+                remanence: 80000.0,
+                temperature: 25.0,
+                friction_coefficient: friction,
+                anisotropy_constant: 10000.0,
+                demagnetization_factor_override: None,
+                spoon_length_m: None,
+                spoon_width_m: None,
+                spoon_thickness_m: None,
+                expected_azimuth: 45.0,
+            };
+            let res = sim.simulate_interactive(&req, modern_field()).unwrap();
+            if let Some(l) = last {
+                assert!(
+                    res.pointing_accuracy_deg >= l - 5.0,
+                    "摩擦{}精度{:.2} vs 上次{:.2}",
+                    friction,
+                    res.pointing_accuracy_deg,
+                    l
+                );
+            }
+            last = Some(res.pointing_accuracy_deg);
+        }
+    }
+
+    #[test]
+    fn test_interactive_boundary_extreme_dimensions_valid() {
+        let sim = simulator();
+        for (name, l, w, t) in vec![
+            ("极小", 0.02, 0.01, 0.001),
+            ("极大", 2.0, 1.0, 0.1),
+            ("极薄", 0.3, 0.2, 0.0001),
+            ("正常", 0.17, 0.11, 0.015),
+        ] {
+            let req = InteractiveSinanRequest {
+                device_type: DeviceType::Sinan,
+                target_year: 2024.0,
+                location_lat: 35.0,
+                location_lon: 115.0,
+                magnetic_moment_magnitude: 0.5,
+                remanence: 80000.0,
+                temperature: 25.0,
+                friction_coefficient: 0.05,
+                anisotropy_constant: 10000.0,
+                demagnetization_factor_override: None,
+                spoon_length_m: Some(l),
+                spoon_width_m: Some(w),
+                spoon_thickness_m: Some(t),
+                expected_azimuth: 180.0,
+            };
+            let res = sim.simulate_interactive(&req, modern_field())
+                .unwrap_or_else(|e| panic!("{}失败: {:?}", name, e));
+            for key in ["n_xx", "n_yy", "n_zz"].iter() {
+                let v = res.demagnetization_tensor[*key];
+                assert!(v.is_finite(), "{}: {}应为有限数, 实际{}", name, key, v);
+            }
+        }
+    }
+
+    #[test]
+    fn test_interactive_educational_insights() {
+        let sim = simulator();
+        let req = InteractiveSinanRequest {
+            device_type: DeviceType::Zhinanyu,
+            target_year: 1044.0,
+            location_lat: 34.0,
+            location_lon: 114.0,
+            magnetic_moment_magnitude: 0.3,
+            remanence: 50000.0,
+            temperature: 15.0,
+            friction_coefficient: 0.01,
+            anisotropy_constant: 8000.0,
+            demagnetization_factor_override: None,
+            spoon_length_m: None,
+            spoon_width_m: None,
+            spoon_thickness_m: None,
+            expected_azimuth: 270.0,
+        };
+        let res = sim.simulate_interactive(&req, ancient_field()).unwrap();
+        assert!(res.physics_insights.len() >= 3, "至少3条教育性洞察");
+        for i in &res.physics_insights {
+            assert!(!i.is_empty());
+            assert!(i.chars().count() >= 5);
+        }
+    }
+
+    // ========== 辅助：退磁张量数学性质 ==========
+
+    #[test]
+    fn test_demagnetization_tensor_sum_approx_one() {
+        let cases = vec![
+            ("司南", DemagnetizationTensor::for_spoon_shape(0.17, 0.11, 0.015)),
+            ("鱼形", DemagnetizationTensor::for_fish_shape(0.10, 0.025, 0.001)),
+            ("针形", DemagnetizationTensor::for_needle_shape(0.04, 0.002, 0.0005)),
+            ("MEMS", DemagnetizationTensor::for_mems_chip(0.002)),
+        ];
+        for (name, t) in cases {
+            let sum = t.n_xx + t.n_yy + t.n_zz;
+            assert!(
+                (sum - 1.0).abs() < 0.5,
+                "{}: 退磁张量主对角和大致合理, 实际{}",
+                name, sum
+            );
+            assert!(t.n_xx.is_finite(), "{}: n_xx有限", name);
+            assert!(t.n_yy.is_finite(), "{}: n_yy有限", name);
+            assert!(t.n_zz.is_finite(), "{}: n_zz有限", name);
+        }
+    }
+}

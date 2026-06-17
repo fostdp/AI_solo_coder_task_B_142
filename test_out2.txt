@@ -1,0 +1,414 @@
+﻿cargo : warning: unused variable: `c_factor`
+所在位置 行:1 字符: 88
++ ... 42\backend; cargo test --bin sinan-backend micromagnetic_simulation:: ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: unused variable: `c_fact 
+   or`:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   --> src\micromagnetic_simulation.rs:113:17
+    |
+113 |             let c_factor = (alpha_sq / (1.0 - alpha_sq)).sqrt();
+    |                 ^^^^^^^^ help: if this is intentional, prefix it with an 
+underscore: `_c_factor`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by defau
+lt
+
+warning: value assigned to `c` is never read
+   --> src\micromagnetic_simulation.rs:135:21
+    |
+135 |         let mut c = k;
+    |                     ^ this value is reassigned later and never used
+...
+149 |             c = c_new;
+    |             --------- `c` is overwritten here before the previous value i
+s read
+    |
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by def
+ault
+
+warning: unused variable: `wall_thickness`
+   --> src\micromagnetic_simulation.rs:180:13
+    |
+180 |         let wall_thickness = 1e-8;
+    |             ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with a
+n underscore: `_wall_thickness`
+
+warning: unused variable: `reduced_field`
+   --> src\micromagnetic_simulation.rs:756:13
+    |
+756 |         let reduced_field = applied_field / anisotropy_field;
+    |             ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an
+ underscore: `_reduced_field`
+
+warning: unused variable: `params`
+    --> src\micromagnetic_simulation.rs:1186:13
+     |
+1186 |         let params = PointingSimulationParams {
+     |             ^^^^^^ help: if this is intentional, prefix it with an under
+score: `_params`
+
+warning: struct `AlertService` is never constructed
+  --> src\alert_service.rs:10:12
+   |
+10 | pub struct AlertService {
+   |            ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: multiple associated items are never used
+   --> src\alert_service.rs:17:12
+    |
+ 16 | impl AlertService {
+    | ----------------- associated items in this implementation
+ 17 |     pub fn new(config: Config, db: Database, mqtt: Arc<MqttService>) -> S
+elf {
+    |            ^^^
+...
+ 21 |     pub async fn process_sensor_data(&self, data: &mut SinanSensorData) -
+> Result<Option<AlertEvent>> {
+    |                  ^^^^^^^^^^^^^^^^^^^
+...
+ 76 |     pub async fn check_and_send_pending_alerts(&self) -> Result<usize> {
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 98 |     pub fn get_warning_threshold(&self) -> f64 {
+    |            ^^^^^^^^^^^^^^^^^^^^^
+...
+102 |     pub fn get_critical_threshold(&self) -> f64 {
+    |            ^^^^^^^^^^^^^^^^^^^^^^
+...
+106 |     pub async fn acknowledge_alert(&self, alert_id: Uuid) -> Result<()> {
+    |                  ^^^^^^^^^^^^^^^^^
+...
+110 |     pub async fn get_active_alerts(&self, limit: usize) -> Result<Vec<Ale
+rtEvent>> {
+    |                  ^^^^^^^^^^^^^^^^^
+
+warning: field `year` is never read
+  --> src\cals10k_model.rs:17:5
+   |
+14 | struct SphericalHarmonicCoefficients {
+   |        ----------------------------- field in this struct
+...
+17 |     year: f64,
+   |     ^^^^
+
+warning: method `get_available_years` is never used
+   --> src\cals10k_model.rs:789:12
+    |
+ 48 | impl CALS10KModel {
+    | ----------------- method in this implementation
+...
+789 |     pub fn get_available_years(&self) -> Vec<f64> {
+    |            ^^^^^^^^^^^^^^^^^^^
+
+warning: variant `GetCachedData` is never constructed
+  --> src\channels.rs:11:5
+   |
+ 9 | pub enum DtuCommand {
+   |          ---------- variant in this enum
+10 |     ReceiveSensor(SinanSensorData),
+11 |     GetCachedData(oneshot::Sender<Vec<SinanSensorData>>),
+   |     ^^^^^^^^^^^^^
+   |
+   = note: `DtuCommand` has a derived impl for the trait `Debug`, but this is i
+ntentionally ignored during dead code analysis
+
+warning: variant `GetFieldVector` is never constructed
+  --> src\channels.rs:39:5
+   |
+21 | pub enum GeomagneticCommand {
+   |          ------------------ variant in this enum
+...
+39 |     GetFieldVector {
+   |     ^^^^^^^^^^^^^^
+   |
+   = note: `GeomagneticCommand` has a derived impl for the trait `Debug`, but t
+his is intentionally ignored during dead code analysis
+
+warning: struct `SensorAnalyzedData` is never constructed
+  --> src\channels.rs:55:12
+   |
+55 | pub struct SensorAnalyzedData {
+   |            ^^^^^^^^^^^^^^^^^^
+
+warning: field `broadcast_rx` is never read
+   --> src\channels.rs:130:9
+    |
+125 | pub struct ChannelReceivers {
+    |            ---------------- field in this struct
+...
+130 |     pub broadcast_rx: tokio::sync::broadcast::Receiver<SinanSensorData>,
+    |         ^^^^^^^^^^^^
+
+warning: method `clickhouse_url` is never used
+  --> src\config.rs:61:12
+   |
+23 | impl Config {
+   | ----------- method in this implementation
+...
+61 |     pub fn clickhouse_url(&self) -> String {
+   |            ^^^^^^^^^^^^^^
+
+warning: field `database` is never read
+  --> src\database.rs:12:5
+   |
+10 | pub struct Database {
+   |            -------- field in this struct
+11 |     client: Arc<Client>,
+12 |     database: String,
+   |     ^^^^^^^^
+   |
+   = note: `Database` has a derived impl for the trait `Clone`, but this is int
+entionally ignored during dead code analysis
+
+warning: method `query_geomagnetic_data` is never used
+   --> src\database.rs:135:18
+    |
+ 15 | impl Database {
+    | ------------- method in this implementation
+...
+135 |     pub async fn query_geomagnetic_data(
+    |                  ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `inc_dtu_received` is never used
+  --> src\metrics.rs:97:8
+   |
+97 | pub fn inc_dtu_received() {
+   |        ^^^^^^^^^^^^^^^^
+
+warning: function `inc_dtu_valid` is never used
+   --> src\metrics.rs:101:8
+    |
+101 | pub fn inc_dtu_valid() {
+    |        ^^^^^^^^^^^^^
+
+warning: function `inc_dtu_invalid` is never used
+   --> src\metrics.rs:105:8
+    |
+105 | pub fn inc_dtu_invalid() {
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `inc_simulation_run` is never used
+   --> src\metrics.rs:109:8
+    |
+109 | pub fn inc_simulation_run() {
+    |        ^^^^^^^^^^^^^^^^^^
+
+warning: function `inc_geomagnetic_calc` is never used
+   --> src\metrics.rs:113:8
+    |
+113 | pub fn inc_geomagnetic_calc() {
+    |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `inc_alert_generated` is never used
+   --> src\metrics.rs:117:8
+    |
+117 | pub fn inc_alert_generated() {
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: function `inc_alert_mqtt_published` is never used
+   --> src\metrics.rs:121:8
+    |
+121 | pub fn inc_alert_mqtt_published() {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `inc_alert_mqtt_failed` is never used
+   --> src\metrics.rs:125:8
+    |
+125 | pub fn inc_alert_mqtt_failed() {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `inc_clickhouse_insert` is never used
+   --> src\metrics.rs:129:8
+    |
+129 | pub fn inc_clickhouse_insert() {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `inc_clickhouse_insert_failed` is never used
+   --> src\metrics.rs:133:8
+    |
+133 | pub fn inc_clickhouse_insert_failed() {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `set_connected_devices` is never used
+   --> src\metrics.rs:147:8
+    |
+147 | pub fn set_connected_devices(count: usize) {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `set_active_alerts` is never used
+   --> src\metrics.rs:151:8
+    |
+151 | pub fn set_active_alerts(count: usize) {
+    |        ^^^^^^^^^^^^^^^^^
+
+warning: function `set_pointing_accuracy` is never used
+   --> src\metrics.rs:155:8
+    |
+155 | pub fn set_pointing_accuracy(degrees: f64) {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `record_dtu_latency` is never used
+   --> src\metrics.rs:159:8
+    |
+159 | pub fn record_dtu_latency(duration: std::time::Duration) {
+    |        ^^^^^^^^^^^^^^^^^^
+
+warning: function `record_simulation_latency` is never used
+   --> src\metrics.rs:163:8
+    |
+163 | pub fn record_simulation_latency(duration: std::time::Duration) {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `record_geomagnetic_calc_latency` is never used
+   --> src\metrics.rs:167:8
+    |
+167 | pub fn record_geomagnetic_calc_latency(duration: std::time::Duration) {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `QueryRange` is never constructed
+   --> src\models.rs:163:12
+    |
+163 | pub struct QueryRange {
+    |            ^^^^^^^^^^
+
+warning: struct `SensorDataQuery` is never constructed
+   --> src\models.rs:169:12
+    |
+169 | pub struct SensorDataQuery {
+    |            ^^^^^^^^^^^^^^^
+
+warning: methods `publish_custom_alert` and `publish_status_update` are never u
+sed
+   --> src\mqtt_service.rs:100:18
+    |
+ 15 | impl MqttService {
+    | ---------------- methods in this implementation
+...
+100 |     pub async fn publish_custom_alert(
+    |                  ^^^^^^^^^^^^^^^^^^^^
+...
+156 |     pub async fn publish_status_update(
+    |                  ^^^^^^^^^^^^^^^^^^^^^
+
+warning: variable `total_induced_nT` should have a snake case name
+    --> src\micromagnetic_simulation.rs:1064:13
+     |
+1064 |         let total_induced_nT = total_induced.magnitude() * 1e9;
+     |             ^^^^^^^^^^^^^^^^ help: convert the identifier to snake case:
+ `total_induced_n_t`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) o
+n by default
+
+warning: variable `geo_nT` should have a snake case name
+    --> src\micromagnetic_simulation.rs:1065:13
+     |
+1065 |         let geo_nT = geomagnetic_field.magnitude() * 1e9;
+     |             ^^^^^^ help: convert the identifier to snake case: `geo_n_t`
+
+warning: variable `base_amplitude_nT` should have a snake case name
+    --> src\micromagnetic_simulation.rs:1107:13
+     |
+1107 |         let base_amplitude_nT: f64 = match src.interference_type {
+     |             ^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case
+: `base_amplitude_n_t`
+
+warning: variable `induced_nT` should have a snake case name
+    --> src\micromagnetic_simulation.rs:1118:13
+     |
+1118 |         let induced_nT = base_amplitude_nT * src.intensity_factor * dipo
+le_decay;
+     |             ^^^^^^^^^^ help: convert the identifier to snake case: `indu
+ced_n_t`
+
+warning: variable `nT` should have a snake case name
+    --> src\micromagnetic_simulation.rs:1405:31
+     |
+1405 |     fn make_geomagnetic_field(nT: f64, decl_deg: f64, incl_deg: f64) -> 
+Vector3<f64> {
+     |                               ^^ help: convert the identifier to snake c
+ase: `n_t`
+
+warning: structure field `geomagnetic_intensity_nT` should have a snake case na
+me
+   --> src\models.rs:314:9
+    |
+314 |     pub geomagnetic_intensity_nT: f64,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake ca
+se: `geomagnetic_intensity_n_t`
+
+warning: structure field `induced_field_nT` should have a snake case name
+   --> src\models.rs:384:9
+    |
+384 |     pub induced_field_nT: f64,
+    |         ^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `ind
+uced_field_n_t`
+
+warning: structure field `total_interference_field_nT` should have a snake case
+ name
+   --> src\models.rs:400:9
+    |
+400 |     pub total_interference_field_nT: f64,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake
+ case: `total_interference_field_n_t`
+
+warning: structure field `geomagnetic_intensity_nT` should have a snake case na
+me
+   --> src\models.rs:437:9
+    |
+437 |     pub geomagnetic_intensity_nT: f64,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake ca
+se: `geomagnetic_intensity_n_t`
+
+warning: `sinan-backend` (bin "sinan-backend" test) generated 44 warnings (run 
+`cargo fix --bin "sinan-backend" -p sinan-backend --tests` to apply 4 suggestio
+ns)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.29s
+     Running unittests src\main.rs (target\debug\deps\sinan_backend-d5da3ea54c0
+89ba1.exe)
+
+running 24 tests
+test micromagnetic_simulation::tests::test_compare_devices_boundary_empty_devices_defaults_to_all ... ok
+test micromagnetic_simulation::tests::test_compare_devices_boundary_extreme_years ... ok
+test micromagnetic_simulation::tests::test_compare_devices_extreme_temperature ... ok
+test micromagnetic_simulation::tests::test_compare_devices_normal_sinan_vs_hanluopan ... ok
+test micromagnetic_simulation::tests::test_compare_devices_ranking_consistency ... FAILED
+test micromagnetic_simulation::tests::test_cross_era_boundary_extreme_location ... ok
+test micromagnetic_simulation::tests::test_cross_era_boundary_same_field_both_eras ... ok
+test micromagnetic_simulation::tests::test_cross_era_hanluopan_vs_mems ... ok
+test micromagnetic_simulation::tests::test_cross_era_sinan_vs_mems_normal ... ok
+test micromagnetic_simulation::tests::test_cross_era_zhinanyu_vs_mems ... ok
+test micromagnetic_simulation::tests::test_demagnetization_tensor_sum_approx_one ... ok
+test micromagnetic_simulation::tests::test_interactive_boundary_custom_dimensions ... ok
+test micromagnetic_simulation::tests::test_interactive_boundary_extreme_dimensions_valid ... ok
+test micromagnetic_simulation::tests::test_interactive_boundary_extreme_friction ... ok
+test micromagnetic_simulation::tests::test_interactive_boundary_extreme_magnetic_params ... ok
+test micromagnetic_simulation::tests::test_interactive_device_switching_all_four ... ok
+test micromagnetic_simulation::tests::test_interactive_educational_insights ... ok
+test micromagnetic_simulation::tests::test_interactive_normal_sinan_defaults ... ok
+test micromagnetic_simulation::tests::test_interference_all_six_types ... ok
+test micromagnetic_simulation::tests::test_interference_boundary_close_loudspeaker_severe ... ok
+test micromagnetic_simulation::tests::test_interference_boundary_empty_sources_safe ... ok
+test micromagnetic_simulation::tests::test_interference_boundary_very_far_safe ... ok
+test micromagnetic_simulation::tests::test_interference_multiple_sources_stack ... ok
+test micromagnetic_simulation::tests::test_interference_normal_single_ferrous_object ... ok
+
+failures:
+
+---- micromagnetic_simulation::tests::test_compare_devices_ranking_consistency stdout ----
+
+thread 'micromagnetic_simulation::tests::test_compare_devices_ranking_consistency' (31680) panicked at src\micromagnetic_simulation.rs:1549:13:
+MEMS鎺掑悕涓嶅簲宸簬鍙稿崡: [Sinan, Zhinanyu, MemsCompass, HanLuopan]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    micromagnetic_simulation::tests::test_compare_devices_ranking_consistency
+
+test result: FAILED. 23 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+error: test failed, to rerun pass `--bin sinan-backend`
