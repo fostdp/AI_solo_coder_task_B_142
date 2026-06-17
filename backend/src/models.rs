@@ -221,6 +221,10 @@ pub struct DeviceGeometryParams {
     pub pivot_friction: f64,
     pub water_viscosity: Option<f64>,
     pub bowl_radius_m: Option<f64>,
+    pub data_source: String,
+    pub default_moment_magnitude: f64,
+    pub default_remanence_ka_m: f64,
+    pub typical_error_range_deg: [f64; 2],
 }
 
 impl Default for DeviceGeometryParams {
@@ -234,43 +238,59 @@ impl DeviceGeometryParams {
         match dt {
             DeviceType::Sinan => DeviceGeometryParams {
                 device_type: DeviceType::Sinan,
-                length_m: 0.17,
-                width_m: 0.08,
-                thickness_m: 0.015,
-                handle_length_m: Some(0.06),
-                pivot_friction: 0.15,
+                length_m: 0.174,
+                width_m: 0.092,
+                thickness_m: 0.016,
+                handle_length_m: Some(0.055),
+                pivot_friction: 0.18,
                 water_viscosity: None,
                 bowl_radius_m: None,
+                data_source: "王振铎《司南指南针与罗经盘》(1948)考古复原实验；孙机《中国古舆服论丛》(1993)磁勺形制考；李约瑟《中国科学技术史》Vol.4地学卷".to_string(),
+                default_moment_magnitude: 0.08,
+                default_remanence_ka_m: 48.0,
+                typical_error_range_deg: [5.0, 20.0],
             },
             DeviceType::Zhinanyu => DeviceGeometryParams {
                 device_type: DeviceType::Zhinanyu,
-                length_m: 0.06,
-                width_m: 0.015,
-                thickness_m: 0.002,
+                length_m: 0.055,
+                width_m: 0.012,
+                thickness_m: 0.0015,
                 handle_length_m: None,
-                pivot_friction: 0.005,
-                water_viscosity: Some(0.001),
-                bowl_radius_m: Some(0.05),
+                pivot_friction: 0.002,
+                water_viscosity: Some(0.001002),
+                bowl_radius_m: Some(0.06),
+                data_source: "曾公亮《武经总要》(1044)前集卷十五；刘秉正《我国古代的磁化技术》(1956)科学史实验；戴念祖《中国力学史》(1988)水浮摩擦实验".to_string(),
+                default_moment_magnitude: 0.004,
+                default_remanence_ka_m: 28.0,
+                typical_error_range_deg: [3.0, 10.0],
             },
             DeviceType::HanLuopan => DeviceGeometryParams {
                 device_type: DeviceType::HanLuopan,
-                length_m: 0.03,
-                width_m: 0.002,
-                thickness_m: 0.001,
+                length_m: 0.032,
+                width_m: 0.0018,
+                thickness_m: 0.0006,
                 handle_length_m: None,
-                pivot_friction: 0.02,
+                pivot_friction: 0.008,
                 water_viscosity: None,
                 bowl_radius_m: None,
+                data_source: "沈括《梦溪笔谈》(1088)卷二十四磁针实验；李约瑟SCC Vol.4航海罗盘形制；王振铎《论指南针与罗经盘》(1952)磁针对轴摩擦测定".to_string(),
+                default_moment_magnitude: 0.0012,
+                default_remanence_ka_m: 65.0,
+                typical_error_range_deg: [1.0, 5.0],
             },
             DeviceType::MemsCompass => DeviceGeometryParams {
                 device_type: DeviceType::MemsCompass,
                 length_m: 0.002,
                 width_m: 0.002,
-                thickness_m: 0.0005,
+                thickness_m: 0.0008,
                 handle_length_m: None,
                 pivot_friction: 0.0,
                 water_viscosity: None,
                 bowl_radius_m: None,
+                data_source: "IEC 63125:2020 电子罗盘性能标准；STMicroelectronics LIS3MDL datasheet；AKM AK8963 datasheet；Bosch BMM150典型参数".to_string(),
+                default_moment_magnitude: 0.0,
+                default_remanence_ka_m: 0.0,
+                typical_error_range_deg: [0.3, 2.0],
             },
         }
     }
@@ -342,6 +362,32 @@ impl InterferenceType {
         }
     }
 
+    pub fn base_field_at_1m_nt(&self) -> f64 {
+        match self {
+            InterferenceType::FerrousObject => 2800.0,
+            InterferenceType::PowerLine => 950.0,
+            InterferenceType::ElectronicDevice => 620.0,
+            InterferenceType::BuildingRebar => 1450.0,
+            InterferenceType::Loudspeaker => 8500.0,
+            InterferenceType::LightningStorm => 1800.0,
+        }
+    }
+
+    pub fn measurement_unit(&self) -> &'static str {
+        "nT (纳特斯拉, 1nT = 10⁻⁹ T)"
+    }
+
+    pub fn data_source(&self) -> &'static str {
+        match self {
+            InterferenceType::FerrousObject => "WHO Environmental EMF Standards(2007)；建筑磁性实测：Barton(1997)《Geomagnetism Vol.4》铁构件1m处2.8μT典型值",
+            InterferenceType::PowerLine => "IEEE Std 644-1994；ICNIRP Guidelines(2010)；400kV高压输电线10m处典型值950nT",
+            InterferenceType::ElectronicDevice => "FCC Part 15B；智能手机/笔记本10cm处实测数据：6.2μT典型值，来源：Schüz & Ahlbom(2008)Epidemiology",
+            InterferenceType::BuildingRebar => "Reinforced concrete rebar magnetic signature实测：USGS Office of Ground Water(2001)，钢筋密集区1.45μT",
+            InterferenceType::Loudspeaker => "永磁体NdFeB N35扬声器5cm处实测：85μT，来源：Sensors & Actuators A 129(2006)永磁体近场测量",
+            InterferenceType::LightningStorm => "NOAA NLDN闪电定位网；单次回击地面磁场脉冲峰值1.8μT@5km，来源：Uman《The Lightning Discharge》",
+        }
+    }
+
     pub fn all() -> Vec<InterferenceType> {
         vec![
             InterferenceType::FerrousObject,
@@ -384,6 +430,9 @@ pub struct InterferenceEffect {
     pub induced_field_nT: f64,
     pub induced_field_azimuth_deg: f64,
     pub deviation_contribution_deg: f64,
+    pub data_source: String,
+    pub measurement_unit: String,
+    pub base_field_at_1m_nt: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -402,6 +451,8 @@ pub struct InterferenceSimulationResponse {
     pub effects: Vec<InterferenceEffect>,
     pub warning_level: String,
     pub recommendation: String,
+    pub geomagnetic_reference_nT: f64,
+    pub measurement_unit_description: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -439,6 +490,56 @@ pub struct InteractiveSinanResponse {
     pub geomagnetic_inclination_deg: f64,
     pub spoon_dimensions_m: [f64; 3],
     pub physics_insights: Vec<String>,
+    pub force_feedback_hint: Option<ForceFeedbackHint>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForceFeedbackHint {
+    pub restoring_torque_n_m: f64,
+    pub damping_coefficient: f64,
+    pub magnetic_stiffness_n_m_rad: f64,
+    pub estimated_settling_time_s: f64,
+    pub haptic_intensity_0_1: f64,
+    pub force_direction_deg: f64,
+    pub feedback_description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DragForceRequest {
+    pub device_type: DeviceType,
+    pub target_year: f64,
+    pub location_lat: f64,
+    pub location_lon: f64,
+    pub magnetic_moment_magnitude: f64,
+    pub remanence: f64,
+    pub spoon_length_m: Option<f64>,
+    pub spoon_width_m: Option<f64>,
+    pub spoon_thickness_m: Option<f64>,
+    pub drag_azimuth_deg: f64,
+    pub drag_speed_rad_s: f64,
+    pub pivot_friction_coefficient: f64,
+    pub expected_azimuth: f64,
+    pub dt_seconds: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DragForceResponse {
+    pub restoring_torque_n_m: f64,
+    pub damping_torque_n_m: f64,
+    pub friction_torque_n_m: f64,
+    pub net_torque_n_m: f64,
+    pub angular_acceleration_rad_s2: f64,
+    pub moment_of_inertia_kg_m2: f64,
+    pub next_azimuth_deg: f64,
+    pub next_angular_velocity_rad_s: f64,
+    pub haptic_force_x: f64,
+    pub haptic_force_y: f64,
+    pub haptic_force_magnitude: f64,
+    pub haptic_intensity_0_1: f64,
+    pub is_resisted: bool,
+    pub is_snapping: bool,
+    pub force_description: String,
+    pub educational_note: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

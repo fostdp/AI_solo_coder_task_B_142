@@ -1,0 +1,39 @@
+﻿cargo :    Compiling windows-sys v0.61.2
+所在位置 行:1 字符: 81
++ ... _COLOR="never" ; cargo build --tests --bin sinan-backend 2>&1 | Out-F ...
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (   Compiling windows-sys v0.61.2: 
+   String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   Compiling rustls v0.23.40
+   Compiling socket2 v0.6.4
+   Compiling mio v1.2.1
+   Compiling schannel v0.1.29
+   Compiling nu-ansi-term v0.50.3
+   Compiling tracing-subscriber v0.3.23
+   Compiling native-tls v0.2.18
+   Compiling rustls-native-certs v0.8.4
+   Compiling rustls-native-certs v0.7.3
+   Compiling tokio v1.52.3
+   Compiling tokio-util v0.7.18
+   Compiling tokio-native-tls v0.3.1
+   Compiling tokio-rustls v0.26.4
+   Compiling async-compression v0.4.42
+   Compiling tower v0.5.3
+   Compiling tokio-rustls v0.25.0
+   Compiling rumqttc v0.24.0
+   Compiling h2 v0.4.15
+   Compiling h2 v0.3.27
+   Compiling tokio-stream v0.1.18
+   Compiling tower-http v0.5.2
+   Compiling tokio-test v0.4.5
+   Compiling hyper v0.14.32
+   Compiling hyper v1.10.1
+   Compiling hyper-util v0.1.20
+   Compiling hyper-tls v0.5.0
+   Compiling reqwest v0.11.27
+   Compiling hyper-rustls v0.27.9
+   Compiling clickhouse v0.14.3
+   Compiling axum v0.7.9
+   Compiling metrics-exporter-prometheus v0.15.3

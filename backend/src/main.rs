@@ -143,6 +143,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/v1/comparison/cross-era", post(handlers::compare_cross_era))
         .route("/api/v1/simulation/interference", post(handlers::simulate_interference))
         .route("/api/v1/simulation/interactive", post(handlers::simulate_interactive))
+        .route("/api/v1/simulation/drag-force", post(handlers::simulate_drag_force))
         .route("/api/v1/meta/device-types", get(handlers::list_device_types))
         .route("/api/v1/meta/interference-types", get(handlers::list_interference_types))
         .with_state(app_state)

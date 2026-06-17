@@ -1,0 +1,47 @@
+﻿
+> error[E0425]: cannot find type `DragForceRequest` in this scope
+      --> src\micromagnetic_simulation.rs:1404:15
+       |
+  1404 |         req: &DragForceRequest,
+       |               ^^^^^^^^^^^^^^^^ not found in this scope
+> error[E0425]: cannot find type `DragForceResponse` in this scope
+      --> src\micromagnetic_simulation.rs:1406:17
+       |
+  1406 |     ) -> Result<DragForceResponse> {
+       |                 ^^^^^^^^^^^^^^^^^ not found in this scope
+> error[E0422]: cannot find struct, variant or union type `DragForceResponse` i
+n this scope
+      --> src\micromagnetic_simulation.rs:1526:12
+       |
+  1526 |         Ok(DragForceResponse {
+       |            ^^^^^^^^^^^^^^^^^ not found in this scope
+> error[E0425]: cannot find type `ForceFeedbackHint` in this scope
+      --> src\micromagnetic_simulation.rs:1551:17
+       |
+  1551 |     ) -> Option<ForceFeedbackHint> {
+       |                 ^^^^^^^^^^^^^^^^^ not found in this scope
+> error[E0422]: cannot find struct, variant or union type `ForceFeedbackHint` i
+n this scope
+      --> src\micromagnetic_simulation.rs:1584:14
+       |
+  1584 |         Some(ForceFeedbackHint {
+       |              ^^^^^^^^^^^^^^^^^ not found in this scope
+> error[E0063]: missing field `force_feedback_hint` in initializer of `Interact
+iveSinanResponse`
+      --> src\micromagnetic_simulation.rs:1218:23
+       |
+  1218 |             return Ok(InteractiveSinanResponse {
+       |                       ^^^^^^^^^^^^^^^^^^^^^^^^ missing `force_feedback
+_hint`
+> error[E0689]: can't call method `max` on ambiguous numeric type `{float}`
+      --> src\micromagnetic_simulation.rs:1450:28
+       |
+  1450 |         let inertia = i_zz.max(1e-9);
+       |                            ^^^
+> error[E0689]: can't call method `min` on ambiguous numeric type `{float}`
+      --> src\micromagnetic_simulation.rs:1487:44
+       |
+  1487 |             (2.0 * inertia / damping_coef).min(30.0).max(0.1)
+       |                                            ^^^
+
+

@@ -5,7 +5,7 @@ use crate::errors::{AppError, Result};
 use crate::metrics::HttpRequestTimer;
 use crate::micromagnetic_simulation::MicromagneticSimulator;
 use crate::models::{
-    AlertAcknowledgeRequest, CrossEraCompareRequest, InteractiveSinanRequest,
+    AlertAcknowledgeRequest, CrossEraCompareRequest, DragForceRequest, InteractiveSinanRequest,
     InterferenceSimulationRequest, MultiDeviceCompareRequest, PointingSimulationParams,
     SinanSensorData, VectorFieldRequest,
 };
@@ -525,6 +525,33 @@ pub async fn simulate_interactive(
     Ok(Json(serde_json::json!({
         "status": "success",
         "message": "交互式司南磁石参数仿真完成",
+        "data": response,
+    })))
+}
+
+pub async fn simulate_drag_force(
+    State(state): State<AppState>,
+    Json(request): Json<DragForceRequest>,
+) -> Result<Json<serde_json::Value>> {
+    let timer = HttpRequestTimer::new("POST", "/api/v1/simulation/drag-force");
+
+    let geo_field = {
+        let model = state.geomagnetic_model.read();
+        model
+            .get_field_vector(request.location_lat, request.location_lon, request.target_year)
+            .map_err(|e| AppError::InternalError(format!("获取地磁场矢量失败: {}", e)))?
+    };
+
+    let response = state
+        .simulator
+        .simulate_drag_force(&request, geo_field)
+        .map_err(|e| AppError::InternalError(format!("拖拽力反馈仿真失败: {}", e)))?;
+
+    timer.finish("200");
+
+    Ok(Json(serde_json::json!({
+        "status": "success",
+        "message": "磁石拖拽力反馈仿真完成",
         "data": response,
     })))
 }
