@@ -13,6 +13,12 @@ const CONFIG = {
         SECULAR_VARIATION: '/api/v1/geomagnetic/secular',
         SIMULATION_POINTING: '/api/v1/simulation/pointing',
         SIMULATION_RESULTS: '/api/v1/simulation/results',
+        SIMULATION_INTERFERENCE: '/api/v1/simulation/interference',
+        SIMULATION_INTERACTIVE: '/api/v1/simulation/interactive',
+        COMPARISON_DEVICES: '/api/v1/comparison/devices',
+        COMPARISON_CROSS_ERA: '/api/v1/comparison/cross-era',
+        META_DEVICE_TYPES: '/api/v1/meta/device-types',
+        META_INTERFERENCE_TYPES: '/api/v1/meta/interference-types',
         ALERTS_ACTIVE: '/api/v1/alerts/active',
         ALERTS_ACKNOWLEDGE: '/api/v1/alerts/acknowledge',
         STATISTICS: '/api/v1/statistics'

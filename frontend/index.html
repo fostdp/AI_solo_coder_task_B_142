@@ -109,6 +109,10 @@
                 <button class="tab-btn" data-view="vectorfield">地磁场矢量场</button>
                 <button class="tab-btn" data-view="charts">数据图表</button>
                 <button class="tab-btn" data-view="simulation">仿真结果</button>
+                <button class="tab-btn" data-view="compare-devices">装置精度对比</button>
+                <button class="tab-btn" data-view="cross-era">跨时代对比</button>
+                <button class="tab-btn" data-view="interference">干扰模拟</button>
+                <button class="tab-btn" data-view="interactive">虚拟体验</button>
             </div>
 
             <div class="view-container">
@@ -249,6 +253,223 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="view" id="compare-devicesView">
+                    <div class="compare-devices-container">
+                        <div class="panel">
+                            <h3>古代多装置精度对比</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>目标年份</label>
+                                    <input type="number" id="cmpTargetYear" value="-100" min="-3000" max="2000">
+                                </div>
+                                <div class="form-group">
+                                    <label>纬度</label>
+                                    <input type="number" id="cmpLat" value="34.265" step="0.001">
+                                </div>
+                                <div class="form-group">
+                                    <label>经度</label>
+                                    <input type="number" id="cmpLon" value="108.955" step="0.001">
+                                </div>
+                                <div class="form-group">
+                                    <label>温度 (°C)</label>
+                                    <input type="number" id="cmpTemp" value="25">
+                                </div>
+                                <div class="form-group">
+                                    <label>预期方位 (°)</label>
+                                    <input type="number" id="cmpAzimuth" value="180" min="0" max="360">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>选择对比装置</label>
+                                <div class="device-checkboxes" id="deviceCheckboxes"></div>
+                            </div>
+                            <button class="btn btn-primary" id="runCompareBtn">运行对比仿真</button>
+                        </div>
+                        <div class="compare-results" id="compareResults">
+                            <div class="empty-state">请选择装置并运行对比仿真</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="view" id="cross-eraView">
+                    <div class="cross-era-container">
+                        <div class="panel">
+                            <h3>古代 vs 现代MEMS跨时代对比</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>纬度</label>
+                                    <input type="number" id="ceLat" value="34.265" step="0.001">
+                                </div>
+                                <div class="form-group">
+                                    <label>经度</label>
+                                    <input type="number" id="ceLon" value="108.955" step="0.001">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>古代年份</label>
+                                    <input type="number" id="ceAncientYear" value="-100">
+                                </div>
+                                <div class="form-group">
+                                    <label>现代年份</label>
+                                    <input type="number" id="ceModernYear" value="2024">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>古代装置</label>
+                                    <select id="ceAncientDevice">
+                                        <option value="sinan">司南（磁勺）</option>
+                                        <option value="zhinanyu">指南鱼</option>
+                                        <option value="han_luopan">旱罗盘</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>温度 (°C)</label>
+                                    <input type="number" id="ceTemp" value="25">
+                                </div>
+                                <div class="form-group">
+                                    <label>预期方位 (°)</label>
+                                    <input type="number" id="ceAzimuth" value="180" min="0" max="360">
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" id="runCrossEraBtn">运行跨时代对比</button>
+                        </div>
+                        <div class="cross-era-results" id="crossEraResults">
+                            <div class="empty-state">请点击运行跨时代对比</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="view" id="interferenceView">
+                    <div class="interference-container">
+                        <div class="panel">
+                            <h3>环境磁场干扰对指向的影响模拟</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>装置类型</label>
+                                    <select id="infDeviceType">
+                                        <option value="sinan">司南（磁勺）</option>
+                                        <option value="zhinanyu">指南鱼</option>
+                                        <option value="han_luopan">旱罗盘</option>
+                                        <option value="mems_compass">现代MEMS电子罗盘</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>目标年份</label>
+                                    <input type="number" id="infYear" value="-100">
+                                </div>
+                                <div class="form-group">
+                                    <label>纬度</label>
+                                    <input type="number" id="infLat" value="34.265" step="0.001">
+                                </div>
+                                <div class="form-group">
+                                    <label>经度</label>
+                                    <input type="number" id="infLon" value="108.955" step="0.001">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>干扰源配置（可多选）</label>
+                                <div class="interference-list" id="interferenceList"></div>
+                                <button class="btn btn-secondary btn-sm" id="addInterferenceBtn">+ 添加干扰源</button>
+                            </div>
+                            <button class="btn btn-primary" id="runInterferenceBtn">运行干扰仿真</button>
+                        </div>
+                        <div class="interference-results" id="interferenceResults">
+                            <div class="empty-state">请配置干扰源并运行仿真</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="view" id="interactiveView">
+                    <div class="interactive-container">
+                        <div class="panel interactive-controls">
+                            <h3>虚拟使用司南体验</h3>
+                            <p class="hint">拖动滑块调节磁石参数，观察司南指向如何实时变化</p>
+
+                            <div class="form-group">
+                                <label>装置类型</label>
+                                <select id="intDeviceType">
+                                    <option value="sinan">司南（磁勺）</option>
+                                    <option value="zhinanyu">指南鱼</option>
+                                    <option value="han_luopan">旱罗盘</option>
+                                    <option value="mems_compass">现代MEMS电子罗盘</option>
+                                </select>
+                            </div>
+
+                            <div class="slider-group">
+                                <label>目标年份: <span id="intYearValue">-100</span></label>
+                                <input type="range" id="intYear" min="-3000" max="2024" value="-100" class="param-slider">
+                            </div>
+                            <div class="slider-group">
+                                <label>磁矩大小 (A·m²): <span id="intMomentValue">0.05</span></label>
+                                <input type="range" id="intMoment" min="0.001" max="1" step="0.001" value="0.05" class="param-slider">
+                            </div>
+                            <div class="slider-group">
+                                <label>剩磁强度 (T): <span id="intRemanenceValue">0.4</span></label>
+                                <input type="range" id="intRemanence" min="0.01" max="2" step="0.01" value="0.4" class="param-slider">
+                            </div>
+                            <div class="slider-group">
+                                <label>环境温度 (°C): <span id="intTempValue">25</span></label>
+                                <input type="range" id="intTemp" min="-50" max="150" value="25" class="param-slider">
+                            </div>
+                            <div class="slider-group">
+                                <label>摩擦系数: <span id="intFrictionValue">0.1</span></label>
+                                <input type="range" id="intFriction" min="0" max="1" step="0.01" value="0.1" class="param-slider">
+                            </div>
+                            <div class="slider-group">
+                                <label>各向异性常数: <span id="intAnisotropyValue">500</span></label>
+                                <input type="range" id="intAnisotropy" min="10" max="10000" step="10" value="500" class="param-slider">
+                            </div>
+                            <div class="slider-group">
+                                <label>勺体长度 (cm): <span id="intLengthValue">17.0</span></label>
+                                <input type="range" id="intLength" min="2" max="50" step="0.1" value="17" class="param-slider">
+                            </div>
+                            <div class="slider-group">
+                                <label>勺体宽度 (cm): <span id="intWidthValue">8.0</span></label>
+                                <input type="range" id="intWidth" min="1" max="30" step="0.1" value="8" class="param-slider">
+                            </div>
+                            <div class="slider-group">
+                                <label>勺体厚度 (mm): <span id="intThicknessValue">15.0</span></label>
+                                <input type="range" id="intThickness" min="0.5" max="50" step="0.1" value="15" class="param-slider">
+                            </div>
+
+                            <button class="btn btn-primary" id="runInteractiveBtn">立即仿真</button>
+                        </div>
+
+                        <div class="interactive-display">
+                            <div class="interactive-compass-wrapper">
+                                <canvas id="interactiveCanvas"></canvas>
+                                <div class="interactive-readout">
+                                    <div class="readout-item">
+                                        <span class="readout-label">模拟方位</span>
+                                        <span class="readout-value" id="intSimAzimuth">--°</span>
+                                    </div>
+                                    <div class="readout-item">
+                                        <span class="readout-label">指向偏差</span>
+                                        <span class="readout-value" id="intAccuracy">--°</span>
+                                    </div>
+                                    <div class="readout-item">
+                                        <span class="readout-label">地磁强度</span>
+                                        <span class="readout-value" id="intFieldIntensity">-- nT</span>
+                                    </div>
+                                    <div class="readout-item">
+                                        <span class="readout-label">有效磁矩</span>
+                                        <span class="readout-value" id="intEffMoment">-- A·m²</span>
+                                    </div>
+                                    <div class="readout-item">
+                                        <span class="readout-label">热涨落σ</span>
+                                        <span class="readout-value" id="intThermal">--°</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="interactive-insights" id="interactiveInsights">
+                                <div class="empty-state">调节参数后点击"立即仿真"查看物理洞察</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
@@ -261,6 +482,7 @@
     <script src="js/charts.js"></script>
     <script src="js/data.js"></script>
     <script src="js/magnetic_panel.js"></script>
+    <script src="js/experience_features.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

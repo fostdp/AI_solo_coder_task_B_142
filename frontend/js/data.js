@@ -119,6 +119,42 @@ class DataService {
     async getStatistics() {
         return this.request(CONFIG.ENDPOINTS.STATISTICS);
     }
+
+    async getDeviceTypes() {
+        return this.request(CONFIG.ENDPOINTS.META_DEVICE_TYPES);
+    }
+
+    async getInterferenceTypes() {
+        return this.request(CONFIG.ENDPOINTS.META_INTERFERENCE_TYPES);
+    }
+
+    async compareDevices(request) {
+        return this.request(CONFIG.ENDPOINTS.COMPARISON_DEVICES, {
+            method: 'POST',
+            body: JSON.stringify(request),
+        });
+    }
+
+    async compareCrossEra(request) {
+        return this.request(CONFIG.ENDPOINTS.COMPARISON_CROSS_ERA, {
+            method: 'POST',
+            body: JSON.stringify(request),
+        });
+    }
+
+    async simulateInterference(request) {
+        return this.request(CONFIG.ENDPOINTS.SIMULATION_INTERFERENCE, {
+            method: 'POST',
+            body: JSON.stringify(request),
+        });
+    }
+
+    async simulateInteractive(request) {
+        return this.request(CONFIG.ENDPOINTS.SIMULATION_INTERACTIVE, {
+            method: 'POST',
+            body: JSON.stringify(request),
+        });
+    }
     
     startSensorStream(onData, onError) {
         if (this.eventSource) {

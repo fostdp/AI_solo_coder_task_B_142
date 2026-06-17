@@ -1,7 +1,14 @@
 use crate::errors::{AppError, Result};
-use crate::models::{PointingSimulationParams, PointingSimulationResult};
+use crate::models::{
+    DeviceGeometryParams, DeviceType, InteractiveSinanRequest, InteractiveSinanResponse,
+    InterferenceEffect, InterferenceSimulationRequest, InterferenceSimulationResponse,
+    InterferenceSource, InterferenceType, MultiDeviceCompareRequest, MultiDeviceCompareResponse,
+    PointingSimulationParams, PointingSimulationResult, SingleDeviceAccuracy,
+    CrossEraCompareRequest, CrossEraCompareResponse,
+};
 use nalgebra::{Vector3, Matrix3};
 use rand_distr::{Normal, Distribution};
+use std::collections::HashMap;
 use std::f64::consts::PI;
 
 #[derive(Debug, Clone)]
@@ -190,8 +197,68 @@ impl DemagnetizationTensor {
     pub fn effective_trace(&self) -> f64 {
         (self.n_xx + self.n_yy + self.n_zz) / 3.0 + self.corner_correction * 0.3
     }
+
+    pub fn for_fish_shape(length_m: f64, width_m: f64, thickness_m: f64) -> Self {
+        let (n_body_x, n_body_y, n_body_z) = Self::ellipsoid_demagnetization_factors(
+            length_m, width_m * 0.6, thickness_m
+        );
+        let (n_head_x, n_head_y, n_head_z) = Self::ellipsoid_demagnetization_factors(
+            length_m * 0.3, width_m, thickness_m * 1.5
+        );
+        let (n_tail_x, n_tail_y, n_tail_z) = Self::ellipsoid_demagnetization_factors(
+            length_m * 0.25, width_m * 0.3, thickness_m * 0.8
+        );
+        let w_body = 0.55;
+        let w_head = 0.3;
+        let w_tail = 0.15;
+        Self {
+            n_xx: w_body * n_body_x + w_head * n_head_x + w_tail * n_tail_x,
+            n_yy: w_body * n_body_y + w_head * n_head_y + w_tail * n_tail_y,
+            n_zz: w_body * n_body_z + w_head * n_head_z + w_tail * n_tail_z,
+            n_xy: -0.01,
+            n_xz: 0.008,
+            n_yz: -0.005,
+            corner_correction: 0.04,
+            domain_wall_correction: 0.01,
+        }
+    }
+
+    pub fn for_needle_shape(length_m: f64, width_m: f64, thickness_m: f64) -> Self {
+        let (n_x, n_y, n_z) = Self::ellipsoid_demagnetization_factors(
+            length_m, width_m, thickness_m
+        );
+        let aspect_ratio = length_m / (width_m + thickness_m).max(1e-9);
+        let tip_correction = 0.02 * (aspect_ratio / 10.0).tanh();
+        Self {
+            n_xx: n_x,
+            n_yy: n_y,
+            n_zz: n_z,
+            n_xy: 0.0,
+            n_xz: tip_correction * 0.3,
+            n_yz: tip_correction * 0.2,
+            corner_correction: tip_correction,
+            domain_wall_correction: tip_correction * 0.4,
+        }
+    }
+
+    pub fn for_mems_chip(size_m: f64) -> Self {
+        let (n_x, n_y, n_z) = Self::ellipsoid_demagnetization_factors(
+            size_m, size_m, size_m * 0.25
+        );
+        Self {
+            n_xx: n_x,
+            n_yy: n_y,
+            n_zz: n_z,
+            n_xy: 0.0,
+            n_xz: 0.0,
+            n_yz: 0.0,
+            corner_correction: 0.0,
+            domain_wall_correction: 0.0,
+        }
+    }
 }
 
+#[derive(Clone)]
 pub struct MicromagneticSimulator {
     pub boltzmann_constant: f64,
     pub vacuum_permeability: f64,
@@ -697,5 +764,629 @@ impl MicromagneticSimulator {
         };
 
         Ok(switching_field * anisotropy_field)
+    }
+
+    pub fn get_demagnetization_tensor_for_device(&self, geom: &DeviceGeometryParams) -> DemagnetizationTensor {
+        match geom.device_type {
+            DeviceType::Sinan => DemagnetizationTensor::for_spoon_shape(
+                geom.length_m, geom.width_m, geom.thickness_m
+            ),
+            DeviceType::Zhinanyu => DemagnetizationTensor::for_fish_shape(
+                geom.length_m, geom.width_m, geom.thickness_m
+            ),
+            DeviceType::HanLuopan => DemagnetizationTensor::for_needle_shape(
+                geom.length_m, geom.width_m, geom.thickness_m
+            ),
+            DeviceType::MemsCompass => DemagnetizationTensor::for_mems_chip(geom.length_m),
+        }
+    }
+
+    fn get_device_default_moment(&self, dt: DeviceType) -> (f64, f64) {
+        match dt {
+            DeviceType::Sinan => (0.05, 0.4),
+            DeviceType::Zhinanyu => (0.002, 0.3),
+            DeviceType::HanLuopan => (0.0005, 0.6),
+            DeviceType::MemsCompass => (0.0, 0.0),
+        }
+    }
+
+    fn get_device_notes(&self, dt: DeviceType) -> String {
+        match dt {
+            DeviceType::Sinan => "战国至汉代发明，天然磁铁矿琢磨成勺形，放置于青铜地盘。因勺底摩擦较大、天然磁石磁性较弱，典型指向误差约5°-20°。文献记载：'司南之杓，投之于地，其柢指南'（《韩非子·有度》）。".to_string(),
+            DeviceType::Zhinanyu => "北宋《武经总要》记载的军事指南工具，薄铁叶剪裁成鱼形，经地磁场磁化后浮于水面。水浮摩擦极小，但铁片剩磁较弱，典型误差约3°-10°。".to_string(),
+            DeviceType::HanLuopan => "宋代出现的旱罗盘，将磁针贯穿灯芯草或支承于尖枢轴上，配合二十四向方位盘。磁针细长形各向异性强、摩擦极小，典型误差约1°-5°，是古代航海的主要导航工具。".to_string(),
+            DeviceType::MemsCompass => "基于MEMS（微机电系统）技术的现代电子罗盘，通常采用各向异性磁阻(AMR)或隧穿磁阻(TMR)传感器，配合三轴加速度计倾角补偿、硬铁/软铁校准，典型精度0.5°-2°，消费级可达0.3°以内。".to_string(),
+        }
+    }
+
+    fn simulate_mems_compass(&self, geomagnetic_field: Vector3<f64>, expected_azimuth: f64, temperature: f64) -> (f64, f64, f64) {
+        let field_xy = Vector3::new(geomagnetic_field.x, geomagnetic_field.y, 0.0);
+        let theoretical_azimuth = if field_xy.magnitude() > 1e-12 {
+            let angle = field_xy.y.atan2(field_xy.x);
+            (angle * 180.0 / PI + 360.0) % 360.0
+        } else {
+            expected_azimuth
+        };
+
+        let base_noise_std = 0.8;
+        let temp_drift = ((temperature - 25.0) * 0.02).abs();
+        let hard_iron_offset = 0.3;
+        let total_std = base_noise_std + temp_drift + hard_iron_offset;
+
+        let mut rng = rand::thread_rng();
+        let normal = Normal::new(0.0, 1.0).unwrap();
+        let noise = normal.sample(&mut rng) * total_std;
+
+        let simulated = theoretical_azimuth + noise;
+        let mut deviation = (simulated - expected_azimuth).abs();
+        if deviation > 180.0 {
+            deviation = 360.0 - deviation;
+        }
+        (simulated, deviation, total_std)
+    }
+
+    pub fn simulate_device_pointing(
+        &self,
+        device_type: DeviceType,
+        geomagnetic_field: Vector3<f64>,
+        target_year: f64,
+        location_lat: f64,
+        location_lon: f64,
+        temperature: f64,
+        expected_azimuth: f64,
+        magnetic_moment: Option<f64>,
+        remanence: Option<f64>,
+    ) -> Result<SingleDeviceAccuracy> {
+        let geom = DeviceGeometryParams::for_type(device_type);
+        let (default_moment, default_remanence) = self.get_device_default_moment(device_type);
+        let effective_moment = magnetic_moment.unwrap_or(default_moment);
+        let effective_remanence = remanence.unwrap_or(default_remanence);
+
+        if matches!(device_type, DeviceType::MemsCompass) {
+            let (sim_az, dev, std_dev) = self.simulate_mems_compass(
+                geomagnetic_field, expected_azimuth, temperature
+            );
+            return Ok(SingleDeviceAccuracy {
+                device_type,
+                display_name: device_type.display_name().to_string(),
+                era: device_type.era().to_string(),
+                simulated_azimuth: sim_az,
+                pointing_accuracy_deg: if dev < 1.0 { 0.3 } else if dev < 2.0 { 0.5 } else { 1.0 },
+                mean_deviation_deg: dev,
+                std_deviation_deg: std_dev,
+                min_deviation_deg: (dev - 2.0 * std_dev).max(0.0),
+                max_deviation_deg: dev + 2.0 * std_dev,
+                p95_deviation_deg: dev + 1.645 * std_dev,
+                geometry: geom,
+                notes: self.get_device_notes(device_type),
+            });
+        }
+
+        let samples = 50usize;
+        let mut deviations: Vec<f64> = Vec::with_capacity(samples);
+        let mut simulated_azimuths: Vec<f64> = Vec::with_capacity(samples);
+
+        let friction = match device_type {
+            DeviceType::Sinan => geom.pivot_friction,
+            DeviceType::Zhinanyu => 0.002 + geom.water_viscosity.unwrap_or(0.001),
+            DeviceType::HanLuopan => geom.pivot_friction,
+            DeviceType::MemsCompass => 0.0,
+        };
+
+        for _ in 0..samples {
+            let params = PointingSimulationParams {
+                device_id: format!("{:?}", device_type),
+                simulation_id: uuid::Uuid::new_v4().to_string(),
+                target_year,
+                location_lat,
+                location_lon,
+                magnetic_moment_magnitude: effective_moment,
+                remanence: effective_remanence,
+                temperature,
+                friction_coefficient: friction,
+                demagnetization_factor: 0.1,
+                anisotropy_constant: match device_type {
+                    DeviceType::HanLuopan => 5000.0,
+                    DeviceType::Zhinanyu => 1000.0,
+                    _ => 500.0,
+                },
+                expected_azimuth,
+            };
+
+            let sim = self.simulate_pointing_with_device(&params, geomagnetic_field, &geom)?;
+            simulated_azimuths.push(sim.simulated_azimuth);
+            let mut dev = (sim.simulated_azimuth - expected_azimuth).abs();
+            if dev > 180.0 { dev = 360.0 - dev; }
+            deviations.push(dev);
+        }
+
+        deviations.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let mean_dev = deviations.iter().sum::<f64>() / deviations.len() as f64;
+        let variance = deviations.iter().map(|d| (d - mean_dev).powi(2)).sum::<f64>() / deviations.len() as f64;
+        let std_dev = variance.sqrt();
+        let p95_idx = ((deviations.len() as f64) * 0.95) as usize;
+        let p95 = deviations[p95_idx.min(deviations.len() - 1)];
+
+        let avg_az = simulated_azimuths.iter().sum::<f64>() / simulated_azimuths.len() as f64;
+
+        let accuracy = if mean_dev < 1.0 { 0.5 }
+            else if mean_dev < 3.0 { 1.0 }
+            else if mean_dev < 7.0 { 2.0 }
+            else if mean_dev < 15.0 { 5.0 }
+            else { 10.0 };
+
+        Ok(SingleDeviceAccuracy {
+            device_type,
+            display_name: device_type.display_name().to_string(),
+            era: device_type.era().to_string(),
+            simulated_azimuth: avg_az,
+            pointing_accuracy_deg: accuracy,
+            mean_deviation_deg: mean_dev,
+            std_deviation_deg: std_dev,
+            min_deviation_deg: *deviations.first().unwrap_or(&0.0),
+            max_deviation_deg: *deviations.last().unwrap_or(&0.0),
+            p95_deviation_deg: p95,
+            geometry: geom,
+            notes: self.get_device_notes(device_type),
+        })
+    }
+
+    fn simulate_pointing_with_device(
+        &self,
+        params: &PointingSimulationParams,
+        geomagnetic_field: Vector3<f64>,
+        geom: &DeviceGeometryParams,
+    ) -> Result<PointingSimulationResult> {
+        let saved_length = self.spoon_length_m;
+        let saved_width = self.spoon_width_m;
+        let saved_thickness = self.spoon_thickness_m;
+
+        let mut sim = self.clone();
+        sim.spoon_length_m = geom.length_m;
+        sim.spoon_width_m = geom.width_m;
+        sim.spoon_thickness_m = geom.thickness_m;
+
+        let result = sim.simulate_pointing(params, geomagnetic_field);
+
+        let _ = (saved_length, saved_width, saved_thickness);
+        result
+    }
+
+    pub fn compare_multiple_devices(
+        &self,
+        request: &MultiDeviceCompareRequest,
+        geomagnetic_field: Vector3<f64>,
+    ) -> Result<MultiDeviceCompareResponse> {
+        let mut results = Vec::new();
+        let devices = if request.devices.is_empty() {
+            DeviceType::all()
+        } else {
+            request.devices.clone()
+        };
+
+        for dt in &devices {
+            let acc = self.simulate_device_pointing(
+                *dt,
+                geomagnetic_field,
+                request.target_year,
+                request.location_lat,
+                request.location_lon,
+                request.temperature,
+                request.expected_azimuth,
+                request.magnetic_moment_magnitude,
+                request.remanence,
+            )?;
+            results.push(acc);
+        }
+
+        let mut ranking = results.clone();
+        ranking.sort_by(|a, b| a.mean_deviation_deg.partial_cmp(&b.mean_deviation_deg).unwrap());
+        let ranking: Vec<DeviceType> = ranking.iter().map(|r| r.device_type).collect();
+
+        let best = results.iter().min_by(|a, b| a.mean_deviation_deg.partial_cmp(&b.mean_deviation_deg).unwrap());
+        let worst = results.iter().max_by(|a, b| a.mean_deviation_deg.partial_cmp(&b.mean_deviation_deg).unwrap());
+        let summary = match (best, worst) {
+            (Some(b), Some(w)) => format!(
+                "精度排名：{}（最优，平均偏差{:.2}°）> {}（最差，平均偏差{:.2}°）；精度差异约{:.1}倍，反映了从战国到现代约2300年的导航技术进步。",
+                b.display_name, b.mean_deviation_deg,
+                w.display_name, w.mean_deviation_deg,
+                w.mean_deviation_deg / b.mean_deviation_deg.max(0.01)
+            ),
+            _ => "对比完成".to_string(),
+        };
+
+        let field_intensity = geomagnetic_field.magnitude() * 1e9;
+        let (declination, inclination) = self.field_to_di(geomagnetic_field);
+
+        Ok(MultiDeviceCompareResponse {
+            target_year: request.target_year,
+            location_lat: request.location_lat,
+            location_lon: request.location_lon,
+            expected_azimuth: request.expected_azimuth,
+            geomagnetic_intensity_nT: field_intensity,
+            geomagnetic_declination_deg: declination,
+            geomagnetic_inclination_deg: inclination,
+            devices: results,
+            ranking,
+            summary,
+        })
+    }
+
+    pub fn simulate_interference(
+        &self,
+        request: &InterferenceSimulationRequest,
+        geomagnetic_field: Vector3<f64>,
+    ) -> Result<InterferenceSimulationResponse> {
+        let geom = DeviceGeometryParams::for_type(request.device_type);
+
+        let (default_moment, default_remanence) = self.get_device_default_moment(request.device_type);
+        let effective_moment = request.magnetic_moment_magnitude.unwrap_or(default_moment);
+        let effective_remanence = request.remanence.unwrap_or(default_remanence);
+
+        let baseline = self.simulate_device_pointing(
+            request.device_type,
+            geomagnetic_field,
+            request.target_year,
+            request.location_lat,
+            request.location_lon,
+            request.temperature,
+            request.expected_azimuth,
+            Some(effective_moment),
+            Some(effective_remanence),
+        )?;
+
+        let mut total_induced = Vector3::zeros();
+        let mut effects = Vec::new();
+
+        for src in &request.interference_sources {
+            let (induced_vec, effect) = self.calculate_interference_field(
+                src, geomagnetic_field
+            );
+            total_induced = total_induced + induced_vec;
+            effects.push(effect);
+        }
+
+        let interfered_field = geomagnetic_field + total_induced;
+
+        let interfered = self.simulate_device_pointing(
+            request.device_type,
+            interfered_field,
+            request.target_year,
+            request.location_lat,
+            request.location_lon,
+            request.temperature,
+            request.expected_azimuth,
+            Some(effective_moment),
+            Some(effective_remanence),
+        )?;
+
+        let delta = (interfered.mean_deviation_deg - baseline.mean_deviation_deg).abs();
+        let total_induced_nT = total_induced.magnitude() * 1e9;
+        let geo_nT = geomagnetic_field.magnitude() * 1e9;
+        let interference_ratio = total_induced_nT / geo_nT.max(1.0);
+
+        let warning_level = if interference_ratio < 0.05 { "安全".to_string() }
+            else if interference_ratio < 0.2 { "轻微干扰".to_string() }
+            else if interference_ratio < 0.5 { "中度干扰".to_string() }
+            else { "严重干扰".to_string() };
+
+        let recommendation = if interference_ratio < 0.05 {
+            "当前环境对指向装置影响极小，可放心使用。".to_string()
+        } else if interference_ratio < 0.2 {
+            "建议远离干扰源至少1-2米，以获得更准确的指向。".to_string()
+        } else if interference_ratio < 0.5 {
+            "干扰显著！建议将装置移至室外或距离大型金属/电气设备5米以上的区域。".to_string()
+        } else {
+            "严重干扰警告！当前位置不适合使用任何磁指向装置，请移动到开阔区域或更换为惯性/GPS导航。".to_string()
+        };
+
+        let _ = geom;
+        Ok(InterferenceSimulationResponse {
+            device_type: request.device_type,
+            target_year: request.target_year,
+            location_lat: request.location_lat,
+            location_lon: request.location_lon,
+            baseline_azimuth: baseline.simulated_azimuth,
+            baseline_accuracy_deg: baseline.mean_deviation_deg,
+            interfered_azimuth: interfered.simulated_azimuth,
+            interfered_accuracy_deg: interfered.mean_deviation_deg,
+            total_deviation_delta_deg: delta,
+            total_interference_field_nT: total_induced_nT,
+            interference_ratio,
+            effects,
+            warning_level,
+            recommendation,
+        })
+    }
+
+    fn calculate_interference_field(
+        &self,
+        src: &InterferenceSource,
+        geomagnetic_field: Vector3<f64>,
+    ) -> (Vector3<f64>, InterferenceEffect) {
+        let base_amplitude_nT: f64 = match src.interference_type {
+            InterferenceType::FerrousObject => 5000.0,
+            InterferenceType::PowerLine => 2000.0,
+            InterferenceType::ElectronicDevice => 800.0,
+            InterferenceType::BuildingRebar => 1500.0,
+            InterferenceType::Loudspeaker => 10000.0,
+            InterferenceType::LightningStorm => 3000.0,
+        };
+
+        let distance = src.distance_m.max(0.01);
+        let dipole_decay = 1.0 / distance.powi(3);
+        let induced_nT = base_amplitude_nT * src.intensity_factor * dipole_decay;
+
+        let az_rad = src.azimuth_deg * PI / 180.0;
+        let geo_inclination = self.field_to_di(geomagnetic_field).1;
+        let inc_rad = geo_inclination * PI / 180.0;
+
+        let h = induced_nT * inc_rad.cos();
+        let bx = h * az_rad.cos();
+        let by = h * az_rad.sin();
+        let bz = induced_nT * inc_rad.sin();
+
+        let induced_vec = Vector3::new(bx * 1e-9, by * 1e-9, bz * 1e-9);
+
+        let geo_xy = Vector3::new(geomagnetic_field.x, geomagnetic_field.y, 0.0);
+        let ind_xy = Vector3::new(induced_vec.x, induced_vec.y, 0.0);
+        let mut dev_contr = 0.0;
+        if geo_xy.magnitude() > 1e-20 && ind_xy.magnitude() > 1e-20 {
+            let geo_az = geo_xy.y.atan2(geo_xy.x);
+            let ind_az = ind_xy.y.atan2(ind_xy.x);
+            let angle_diff = ((ind_az - geo_az).sin()).abs();
+            let ratio = ind_xy.magnitude() / geo_xy.magnitude().max(1e-20);
+            dev_contr = (ratio * angle_diff * 180.0 / PI).min(45.0);
+        }
+
+        (induced_vec, InterferenceEffect {
+            interference_type: src.interference_type,
+            display_name: src.interference_type.display_name().to_string(),
+            distance_m: src.distance_m,
+            induced_field_nT: induced_nT,
+            induced_field_azimuth_deg: src.azimuth_deg,
+            deviation_contribution_deg: dev_contr,
+        })
+    }
+
+    fn field_to_di(&self, field: Vector3<f64>) -> (f64, f64) {
+        let field_xy = Vector3::new(field.x, field.y, 0.0);
+        let declination = if field_xy.magnitude() > 1e-12 {
+            field_xy.y.atan2(field_xy.x) * 180.0 / PI
+        } else { 0.0 };
+        let inclination = if field.magnitude() > 1e-12 {
+            field.z.atan2(field_xy.magnitude()) * 180.0 / PI
+        } else { 0.0 };
+        (declination, inclination)
+    }
+
+    pub fn simulate_interactive(
+        &self,
+        request: &InteractiveSinanRequest,
+        geomagnetic_field: Vector3<f64>,
+    ) -> Result<InteractiveSinanResponse> {
+        let geom = DeviceGeometryParams::for_type(request.device_type);
+
+        let length = request.spoon_length_m.unwrap_or(geom.length_m);
+        let width = request.spoon_width_m.unwrap_or(geom.width_m);
+        let thickness = request.spoon_thickness_m.unwrap_or(geom.thickness_m);
+
+        let mut sim = self.clone();
+        sim.spoon_length_m = length;
+        sim.spoon_width_m = width;
+        sim.spoon_thickness_m = thickness;
+
+        let demag_tensor = match request.device_type {
+            DeviceType::Sinan => DemagnetizationTensor::for_spoon_shape(length, width, thickness),
+            DeviceType::Zhinanyu => DemagnetizationTensor::for_fish_shape(length, width, thickness),
+            DeviceType::HanLuopan => DemagnetizationTensor::for_needle_shape(length, width, thickness),
+            DeviceType::MemsCompass => DemagnetizationTensor::for_mems_chip(length),
+        };
+
+        let params = PointingSimulationParams {
+            device_id: format!("interactive-{:?}", request.device_type),
+            simulation_id: uuid::Uuid::new_v4().to_string(),
+            target_year: request.target_year,
+            location_lat: request.location_lat,
+            location_lon: request.location_lon,
+            magnetic_moment_magnitude: request.magnetic_moment_magnitude,
+            remanence: request.remanence,
+            temperature: request.temperature,
+            friction_coefficient: request.friction_coefficient,
+            demagnetization_factor: request.demagnetization_factor_override.unwrap_or(0.1),
+            anisotropy_constant: request.anisotropy_constant,
+            expected_azimuth: request.expected_azimuth,
+        };
+
+        if matches!(request.device_type, DeviceType::MemsCompass) {
+            let (sim_az, dev, std_dev) = self.simulate_mems_compass(
+                geomagnetic_field, request.expected_azimuth, request.temperature
+            );
+            let mut demag_map = HashMap::new();
+            demag_map.insert("n_xx".to_string(), demag_tensor.n_xx);
+            demag_map.insert("n_yy".to_string(), demag_tensor.n_yy);
+            demag_map.insert("n_zz".to_string(), demag_tensor.n_zz);
+
+            return Ok(InteractiveSinanResponse {
+                device_type: request.device_type,
+                simulated_azimuth: sim_az,
+                pointing_accuracy_deg: dev,
+                expected_azimuth: request.expected_azimuth,
+                magnetic_moment_vector: [0.0, 0.0, 0.0],
+                effective_moment_magnitude: 0.0,
+                torque_magnitude: 0.0,
+                thermal_fluctuation_deg: std_dev,
+                demagnetization_tensor: demag_map,
+                geomagnetic_field: [geomagnetic_field.x, geomagnetic_field.y, geomagnetic_field.z],
+                geomagnetic_intensity_nT: geomagnetic_field.magnitude() * 1e9,
+                geomagnetic_declination_deg: self.field_to_di(geomagnetic_field).0,
+                geomagnetic_inclination_deg: self.field_to_di(geomagnetic_field).1,
+                spoon_dimensions_m: [length, width, thickness],
+                physics_insights: vec![
+                    "现代MEMS电子罗盘采用磁阻传感器（AMR/TMR），不依赖永磁体磁矩。".to_string(),
+                    format!("当前噪声标准差约{:.2}°，包含温度漂移和硬铁偏移。", std_dev),
+                    "MEMS罗盘需配合加速度计做倾角补偿，并定期做软硬铁校准。".to_string(),
+                ],
+            });
+        }
+
+        let mag_vec = sim.calculate_equilibrium_magnetization(
+            request.magnetic_moment_magnitude,
+            request.remanence,
+            geomagnetic_field,
+            request.anisotropy_constant,
+            request.temperature,
+        )?;
+
+        let effective_moment = sim.apply_demagnetization_tensor(
+            mag_vec,
+            &demag_tensor,
+            request.remanence,
+            geomagnetic_field,
+        )?;
+
+        let torque = sim.calculate_magnetic_torque(effective_moment, geomagnetic_field);
+
+        let (sim_az, _accuracy) = sim.calculate_equilibrium_orientation(
+            effective_moment,
+            geomagnetic_field,
+            torque,
+            request.friction_coefficient,
+            request.temperature,
+            request.expected_azimuth,
+            &demag_tensor,
+        )?;
+
+        let mut dev = (sim_az - request.expected_azimuth).abs();
+        if dev > 180.0 { dev = 360.0 - dev; }
+
+        let temp_kelvin = request.temperature + 273.15;
+        let thermal_energy = self.boltzmann_constant * temp_kelvin;
+        let magnetic_energy = self.vacuum_permeability * effective_moment.magnitude() * geomagnetic_field.magnitude();
+        let stability_ratio = magnetic_energy / thermal_energy.max(1e-30);
+        let thermal_fluctuation = if stability_ratio > 1.0 {
+            (1.0 / stability_ratio).sqrt() * 5.0
+        } else { 15.0 };
+
+        let mut demag_map = HashMap::new();
+        demag_map.insert("n_xx".to_string(), demag_tensor.n_xx);
+        demag_map.insert("n_yy".to_string(), demag_tensor.n_yy);
+        demag_map.insert("n_zz".to_string(), demag_tensor.n_zz);
+        demag_map.insert("n_xy".to_string(), demag_tensor.n_xy);
+        demag_map.insert("n_xz".to_string(), demag_tensor.n_xz);
+        demag_map.insert("n_yz".to_string(), demag_tensor.n_yz);
+        demag_map.insert("corner_correction".to_string(), demag_tensor.corner_correction);
+        demag_map.insert("domain_wall_correction".to_string(), demag_tensor.domain_wall_correction);
+
+        let mut insights = Vec::new();
+        insights.push(format!(
+            "当前装置尺寸：长{:.1}cm × 宽{:.1}cm × 厚{:.2}cm，退磁因子(Nxx,Nyy,Nzz)=({:.3}, {:.3}, {:.3})。",
+            length * 100.0, width * 100.0, thickness * 100.0,
+            demag_tensor.n_xx, demag_tensor.n_yy, demag_tensor.n_zz
+        ));
+        insights.push(format!(
+            "平衡磁化强度 {:.2} kA/m，有效磁矩 {:.3} A·m²，施加到磁矩上的力矩 {:.2e} N·m。",
+            mag_vec.magnitude() / 1000.0,
+            effective_moment.magnitude(),
+            torque.magnitude()
+        ));
+        insights.push(format!(
+            "热涨落能量 {:.2e} J，磁能 {:.2e} J，能垒比={:.1}；若此值<10则热扰动显著。",
+            thermal_energy, magnetic_energy, stability_ratio
+        ));
+        if request.friction_coefficient > 0.1 {
+            insights.push(format!(
+                "摩擦系数 {:.2} 偏高，勺体与地盘间机械阻力会掩盖微小磁力矩，导致指向模糊。建议使用更光滑的铜质地盘。",
+                request.friction_coefficient
+            ));
+        }
+        if request.magnetic_moment_magnitude < 0.01 {
+            insights.push("磁矩不足！天然磁铁矿的磁矩通常在0.02-0.1 A·m²之间，磁矩过小将无法克服摩擦。".to_string());
+        }
+        if thermal_fluctuation > 5.0 {
+            insights.push(format!("热涨落较大（σ≈{:.1}°），建议降低温度或使用剩磁更高的磁石材料。", thermal_fluctuation));
+        }
+
+        Ok(InteractiveSinanResponse {
+            device_type: request.device_type,
+            simulated_azimuth: sim_az,
+            pointing_accuracy_deg: dev,
+            expected_azimuth: request.expected_azimuth,
+            magnetic_moment_vector: [effective_moment.x, effective_moment.y, effective_moment.z],
+            effective_moment_magnitude: effective_moment.magnitude(),
+            torque_magnitude: torque.magnitude(),
+            thermal_fluctuation_deg: thermal_fluctuation,
+            demagnetization_tensor: demag_map,
+            geomagnetic_field: [geomagnetic_field.x, geomagnetic_field.y, geomagnetic_field.z],
+            geomagnetic_intensity_nT: geomagnetic_field.magnitude() * 1e9,
+            geomagnetic_declination_deg: self.field_to_di(geomagnetic_field).0,
+            geomagnetic_inclination_deg: self.field_to_di(geomagnetic_field).1,
+            spoon_dimensions_m: [length, width, thickness],
+            physics_insights: insights,
+        })
+    }
+
+    pub fn compare_cross_era(
+        &self,
+        request: &CrossEraCompareRequest,
+        ancient_field: Vector3<f64>,
+        modern_field: Vector3<f64>,
+    ) -> Result<CrossEraCompareResponse> {
+        let ancient = self.simulate_device_pointing(
+            request.ancient_device,
+            ancient_field,
+            request.ancient_year,
+            request.location_lat,
+            request.location_lon,
+            request.temperature,
+            request.expected_azimuth,
+            None,
+            None,
+        )?;
+
+        let modern = self.simulate_device_pointing(
+            DeviceType::MemsCompass,
+            modern_field,
+            request.modern_year,
+            request.location_lat,
+            request.location_lon,
+            request.temperature,
+            request.expected_azimuth,
+            None,
+            None,
+        )?;
+
+        let improvement_factor = ancient.mean_deviation_deg / modern.mean_deviation_deg.max(0.01);
+        let accuracy_gap_deg = ancient.mean_deviation_deg - modern.mean_deviation_deg;
+
+        let narrative = format!(
+            "从汉代的{}（平均偏差{:.2}°）到现代MEMS电子罗盘（平均偏差{:.2}°），\
+            人类磁导航精度在约2000年间提升了约{:.0}倍，指向误差从数度级别降低到亚度级别，\
+            这直接支撑了从陆地短途辨向到远洋航海再到无人机精密导航的技术跃迁。",
+            ancient.display_name, ancient.mean_deviation_deg,
+            modern.mean_deviation_deg, improvement_factor
+        );
+
+        let historical_context = match request.ancient_device {
+            DeviceType::Sinan => "司南是目前有文献记载的最早磁指向装置（战国《韩非子》，东汉王充《论衡》），\
+                但由于天然磁铁矿磁性弱、勺底摩擦大，其实用性一直存在学术争议。王振铎先生1952年的复原实验表明，\
+                只有使用精选的磁铁矿并打磨至极低摩擦系数，才能在汉代地磁场下获得较可靠的指向。".to_string(),
+            DeviceType::Zhinanyu => "指南鱼见于北宋《武经总要》（1044年），是已知最早利用地磁场进行人工磁化的装置。\
+                它采用薄铁片淬火剩磁+水浮支承方案，摩擦比司南显著降低，可应用于军事行军辨向。".to_string(),
+            DeviceType::HanLuopan => "旱罗盘（磁针+方位盘）约在北宋晚期（11世纪末-12世纪初）出现，\
+                南宋《诸蕃志》明确记载了其用于远洋航海。磁针细长的形状各向异性和枢轴低摩擦使其精度远超前代，\
+                成为郑和下西洋、地理大发现时代的核心导航技术。".to_string(),
+            DeviceType::MemsCompass => "现代MEMS电子罗盘是21世纪微电子技术的产物，\
+                广泛应用于智能手机、无人机、VR/AR设备和穿戴设备。配合GPS和IMU可实现全场景无缝导航。".to_string(),
+        };
+
+        Ok(CrossEraCompareResponse {
+            ancient,
+            modern_mems: modern,
+            improvement_factor,
+            accuracy_gap_deg,
+            narrative,
+            historical_context,
+        })
     }
 }

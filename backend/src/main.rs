@@ -113,6 +113,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         senders: senders.clone(),
         sensor_data_cache: sensor_data_cache.clone(),
         metrics_handle: metrics_handle.clone(),
+        simulator: simulator.clone(),
+        geomagnetic_model: geomagnetic_model.clone(),
     };
 
     let cors = CorsLayer::new()
@@ -137,6 +139,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/v1/alerts/active", get(handlers::get_active_alerts))
         .route("/api/v1/alerts/acknowledge", post(handlers::acknowledge_alert))
         .route("/api/v1/statistics", get(handlers::get_statistics))
+        .route("/api/v1/comparison/devices", post(handlers::compare_devices))
+        .route("/api/v1/comparison/cross-era", post(handlers::compare_cross_era))
+        .route("/api/v1/simulation/interference", post(handlers::simulate_interference))
+        .route("/api/v1/simulation/interactive", post(handlers::simulate_interactive))
+        .route("/api/v1/meta/device-types", get(handlers::list_device_types))
+        .route("/api/v1/meta/interference-types", get(handlers::list_interference_types))
         .with_state(app_state)
         .layer(cors);
 

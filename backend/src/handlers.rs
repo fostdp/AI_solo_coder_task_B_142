@@ -1,8 +1,17 @@
 use crate::channels::{AlarmCommand, ChannelSenders, DtuCommand, GeomagneticCommand, SimulatorCommand};
+use crate::cals10k_model::CALS10KModel;
 use crate::database::Database;
 use crate::errors::{AppError, Result};
 use crate::metrics::HttpRequestTimer;
-use crate::models::{AlertAcknowledgeRequest, PointingSimulationParams, SinanSensorData, VectorFieldRequest};
+use crate::micromagnetic_simulation::MicromagneticSimulator;
+use crate::models::{
+    AlertAcknowledgeRequest, CrossEraCompareRequest, InteractiveSinanRequest,
+    InterferenceSimulationRequest, MultiDeviceCompareRequest, PointingSimulationParams,
+    SinanSensorData, VectorFieldRequest,
+};
+use parking_lot::RwLock;
+use std::collections::HashMap;
+use std::sync::Arc;
 use axum::{
     body::Body,
     extract::{Query, State},
@@ -11,9 +20,6 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use metrics_exporter_prometheus::PrometheusHandle;
-use parking_lot::RwLock;
-use std::collections::HashMap;
-use std::sync::Arc;
 use tokio_stream::StreamExt;
 
 #[derive(Clone)]
@@ -22,6 +28,8 @@ pub struct AppState {
     pub senders: ChannelSenders,
     pub sensor_data_cache: Arc<RwLock<HashMap<String, SinanSensorData>>>,
     pub metrics_handle: PrometheusHandle,
+    pub simulator: Arc<MicromagneticSimulator>,
+    pub geomagnetic_model: Arc<RwLock<CALS10KModel>>,
 }
 
 pub async fn health_check() -> Json<serde_json::Value> {
@@ -404,4 +412,169 @@ pub async fn sensor_data_stream(
             .interval(std::time::Duration::from_secs(15))
             .text("keep-alive"),
     )
+}
+
+pub async fn compare_devices(
+    State(state): State<AppState>,
+    Json(request): Json<MultiDeviceCompareRequest>,
+) -> Result<Json<serde_json::Value>> {
+    let timer = HttpRequestTimer::new("POST", "/api/v1/comparison/devices");
+
+    let geo_field = {
+        let model = state.geomagnetic_model.read();
+        model
+            .get_field_vector(request.location_lat, request.location_lon, request.target_year)
+            .map_err(|e| AppError::InternalError(format!("获取地磁场矢量失败: {}", e)))?
+    };
+
+    let response = state
+        .simulator
+        .compare_multiple_devices(&request, geo_field)
+        .map_err(|e| AppError::InternalError(format!("多装置对比仿真失败: {}", e)))?;
+
+    timer.finish("200");
+
+    Ok(Json(serde_json::json!({
+        "status": "success",
+        "message": "多古代指向装置精度对比完成",
+        "data": response,
+    })))
+}
+
+pub async fn compare_cross_era(
+    State(state): State<AppState>,
+    Json(request): Json<CrossEraCompareRequest>,
+) -> Result<Json<serde_json::Value>> {
+    let timer = HttpRequestTimer::new("POST", "/api/v1/comparison/cross-era");
+
+    let ancient_field = {
+        let model = state.geomagnetic_model.read();
+        model
+            .get_field_vector(request.location_lat, request.location_lon, request.ancient_year)
+            .map_err(|e| AppError::InternalError(format!("获取古代地磁场矢量失败: {}", e)))?
+    };
+
+    let modern_field = {
+        let model = state.geomagnetic_model.read();
+        model
+            .get_field_vector(request.location_lat, request.location_lon, request.modern_year)
+            .map_err(|e| AppError::InternalError(format!("获取现代地磁场矢量失败: {}", e)))?
+    };
+
+    let response = state
+        .simulator
+        .compare_cross_era(&request, ancient_field, modern_field)
+        .map_err(|e| AppError::InternalError(format!("跨时代精度对比仿真失败: {}", e)))?;
+
+    timer.finish("200");
+
+    Ok(Json(serde_json::json!({
+        "status": "success",
+        "message": "古代与现代MEMS电子罗盘跨时代精度对比完成",
+        "data": response,
+    })))
+}
+
+pub async fn simulate_interference(
+    State(state): State<AppState>,
+    Json(request): Json<InterferenceSimulationRequest>,
+) -> Result<Json<serde_json::Value>> {
+    let timer = HttpRequestTimer::new("POST", "/api/v1/simulation/interference");
+
+    let geo_field = {
+        let model = state.geomagnetic_model.read();
+        model
+            .get_field_vector(request.location_lat, request.location_lon, request.target_year)
+            .map_err(|e| AppError::InternalError(format!("获取地磁场矢量失败: {}", e)))?
+    };
+
+    let response = state
+        .simulator
+        .simulate_interference(&request, geo_field)
+        .map_err(|e| AppError::InternalError(format!("环境磁场干扰仿真失败: {}", e)))?;
+
+    timer.finish("200");
+
+    Ok(Json(serde_json::json!({
+        "status": "success",
+        "message": "环境磁场干扰对司南指向影响仿真完成",
+        "data": response,
+    })))
+}
+
+pub async fn simulate_interactive(
+    State(state): State<AppState>,
+    Json(request): Json<InteractiveSinanRequest>,
+) -> Result<Json<serde_json::Value>> {
+    let timer = HttpRequestTimer::new("POST", "/api/v1/simulation/interactive");
+
+    let geo_field = {
+        let model = state.geomagnetic_model.read();
+        model
+            .get_field_vector(request.location_lat, request.location_lon, request.target_year)
+            .map_err(|e| AppError::InternalError(format!("获取地磁场矢量失败: {}", e)))?
+    };
+
+    let response = state
+        .simulator
+        .simulate_interactive(&request, geo_field)
+        .map_err(|e| AppError::InternalError(format!("交互式司南仿真失败: {}", e)))?;
+
+    timer.finish("200");
+
+    Ok(Json(serde_json::json!({
+        "status": "success",
+        "message": "交互式司南磁石参数仿真完成",
+        "data": response,
+    })))
+}
+
+pub async fn list_device_types() -> Json<serde_json::Value> {
+    use crate::models::DeviceType;
+    let devices: Vec<serde_json::Value> = DeviceType::all()
+        .iter()
+        .map(|dt| {
+            let geom = crate::models::DeviceGeometryParams::for_type(*dt);
+            serde_json::json!({
+                "device_type": dt,
+                "display_name": dt.display_name(),
+                "era": dt.era(),
+                "geometry": geom,
+            })
+        })
+        .collect();
+
+    Json(serde_json::json!({
+        "status": "success",
+        "count": devices.len(),
+        "devices": devices,
+    }))
+}
+
+pub async fn list_interference_types() -> Json<serde_json::Value> {
+    use crate::models::InterferenceType;
+    let types: Vec<serde_json::Value> = InterferenceType::all()
+        .iter()
+        .map(|it| {
+            let typical_distances = match it {
+                InterferenceType::FerrousObject => vec![0.5, 1.0, 2.0, 5.0],
+                InterferenceType::PowerLine => vec![5.0, 10.0, 20.0, 50.0],
+                InterferenceType::ElectronicDevice => vec![0.3, 0.5, 1.0, 2.0],
+                InterferenceType::BuildingRebar => vec![0.5, 1.0, 2.0, 3.0],
+                InterferenceType::Loudspeaker => vec![0.3, 0.5, 1.0, 2.0],
+                InterferenceType::LightningStorm => vec![100.0, 500.0, 1000.0, 5000.0],
+            };
+            serde_json::json!({
+                "interference_type": it,
+                "display_name": it.display_name(),
+                "typical_distances_m": typical_distances,
+            })
+        })
+        .collect();
+
+    Json(serde_json::json!({
+        "status": "success",
+        "count": types.len(),
+        "interference_types": types,
+    }))
 }
